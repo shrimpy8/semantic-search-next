@@ -19,14 +19,23 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 
 ## Screenshots
 
-### Search with AI Answer
-![Search with AI Answer](screenshots/search-with-answer.png)
+### Semantic Search Home
+![Semantic Search Home](screenshots/Semantic_Search_Home_0.png)
 
-### Document Preview
-![Document Preview](screenshots/document-preview.png)
+### AI-Generated Answer with Citations
+![AI Answer with Citations](screenshots/Generated_AI_Answer_Citation_1.png)
 
-### Analytics Dashboard
-![Analytics Dashboard](screenshots/analytics-dashboard.png)
+### Document Chunk Viewer
+![Document Chunks](screenshots/Document_Chunk_Validation.png)
+
+### More Screenshots
+
+| Feature | Description |
+|---------|-------------|
+| [Collections](screenshots/Collections_Organization.png) | Organize documents into searchable collections with custom settings |
+| [Search Settings](screenshots/Search_Settings.png) | Configure retrieval presets, reranking, and confidence thresholds |
+| [Advanced Settings](screenshots/Advanced_Search_Settings.png) | Fine-tune alpha blending, context window, and score display |
+| [Analytics Dashboard](screenshots/Analytics_Dashboard.png) | Track search history, latency trends, and query patterns |
 
 ## Architecture
 
