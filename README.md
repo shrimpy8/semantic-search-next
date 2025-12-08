@@ -17,6 +17,17 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 - **Multiple Providers**: Support for OpenAI, Ollama (local), Jina, Cohere, and Voyage AI embeddings
 - **Dark Mode**: Full theme support with system preference detection
 
+## Screenshots
+
+### Search with AI Answer
+![Search with AI Answer](screenshots/search-with-answer.png)
+
+### Document Preview
+![Document Preview](screenshots/document-preview.png)
+
+### Analytics Dashboard
+![Analytics Dashboard](screenshots/analytics-dashboard.png)
+
 ## Architecture
 
 ```
