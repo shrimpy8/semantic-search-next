@@ -2,20 +2,94 @@
 
 AI-powered document search with hybrid retrieval, intelligent reranking, and confidence-based filtering.
 
+## How Search Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              SEARCH FLOW                                        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────┐
+  │  Your Query │
+  │ "How does   │
+  │  auth work?"│
+  └──────┬──────┘
+         │
+         ▼
+  ┌─────────────┐     ┌────────────────────────────────────────────────────────┐
+  │   EMBED     │     │  Convert query to 3072-dimensional vector using AI     │
+  │   QUERY     │────▶│  (OpenAI text-embedding-3-large)                       │
+  └──────┬──────┘     └────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─────────────────────────────────────────┐
+  │         PARALLEL RETRIEVAL              │
+  │  ┌─────────────┐    ┌─────────────┐     │
+  │  │  SEMANTIC   │    │    BM25     │     │
+  │  │   SEARCH    │    │  KEYWORDS   │     │
+  │  │ (ChromaDB)  │    │ (In-memory) │     │
+  │  │             │    │             │     │
+  │  │ Finds by    │    │ Finds by    │     │
+  │  │  meaning    │    │ exact terms │     │
+  │  └──────┬──────┘    └──────┬──────┘     │
+  │         │                  │            │
+  └─────────┼──────────────────┼────────────┘
+            │                  │
+            ▼                  ▼
+  ┌─────────────────────────────────────────┐
+  │    RECIPROCAL RANK FUSION (RRF)         │
+  │                                         │
+  │  Intelligently merge both result sets   │
+  │  α=0.5 → 50% semantic + 50% keywords    │
+  └──────────────────┬──────────────────────┘
+                     │
+                     ▼
+  ┌─────────────────────────────────────────┐
+  │    CROSS-ENCODER RERANKING              │
+  │                                         │
+  │  AI model scores each query-document    │
+  │  pair for precise relevance (0-100%)    │
+  └──────────────────┬──────────────────────┘
+                     │
+                     ▼
+  ┌─────────────────────────────────────────┐
+  │    CONFIDENCE FILTERING                 │
+  │                                         │
+  │  ┌─────────────┐    ┌─────────────┐     │
+  │  │    HIGH     │    │     LOW     │     │
+  │  │ CONFIDENCE  │    │ CONFIDENCE  │     │
+  │  │  (≥30%)     │    │  (<30%)     │     │
+  │  │  Shown      │    │  Hidden     │     │
+  │  └─────────────┘    └─────────────┘     │
+  └──────────────────┬──────────────────────┘
+                     │
+                     ▼
+  ┌─────────────────────────────────────────┐
+  │    OPTIONAL: AI ANSWER + CITATIONS      │
+  │                                         │
+  │  RAG-powered answer with verification   │
+  │  Each claim linked to source document   │
+  └─────────────────────────────────────────┘
+```
+
+> **Want to learn more?** Visit the **[How It Works](http://localhost:3000/how-it-works)** page in the app for interactive explanations of each concept, search quality progression, and settings guidance.
+
 ## Features
 
-- **Hybrid Retrieval**: Combines BM25 keyword search with semantic embeddings using Reciprocal Rank Fusion (RRF)
-- **AI Answer Generation**: RAG-powered answers with citation verification and hallucination detection
-- **AI Reranking**: Uses Jina cross-encoder (local) or Cohere API to rerank results for relevance
-- **Confidence Filtering**: Separates high-confidence from low-confidence results based on configurable threshold
-- **Answer Verification**: Extracts claims from AI answers and verifies them against source documents
-- **Search Analytics**: Dashboard with search history, latency trends, and usage statistics
-- **Document Preview**: View full document content with chunk navigation
-- **Collection Scoping**: Search across all documents or within specific collections
-- **Retrieval Presets**: High Precision / Balanced / High Recall modes
-- **Score Transparency**: View semantic, BM25, rerank, and final scores on results
-- **Multiple Providers**: Support for OpenAI, Ollama (local), Jina, Cohere, and Voyage AI embeddings
-- **Dark Mode**: Full theme support with system preference detection
+| Feature | Description |
+|---------|-------------|
+| **Hybrid Retrieval** | Combines BM25 keyword search with semantic embeddings using Reciprocal Rank Fusion (RRF) |
+| **AI Answer Generation** | RAG-powered answers with citation verification and hallucination detection |
+| **AI Reranking** | Uses Jina cross-encoder (local) or Cohere API to rerank results for relevance |
+| **Confidence Filtering** | Separates high-confidence from low-confidence results based on configurable threshold |
+| **Answer Verification** | Extracts claims from AI answers and verifies them against source documents |
+| **Search Analytics** | Dashboard with search history, latency trends, and usage statistics |
+| **Document Preview** | View full document content with chunk navigation |
+| **Collection Scoping** | Search across all documents or within specific collections |
+| **Retrieval Presets** | High Precision / Balanced / High Recall modes |
+| **Score Transparency** | View semantic, BM25, rerank, and final scores on results |
+| **Multiple Providers** | Support for OpenAI, Ollama (local), Jina, Cohere, and Voyage AI embeddings |
+| **Dark Mode** | Full theme support with system preference detection |
 
 ## Screenshots
 
@@ -27,6 +101,16 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 
 ### Document Chunk Viewer
 ![Document Chunks](screenshots/Document_Chunk_Validation.png)
+
+### How It Works Page
+
+| Section | Screenshot |
+|---------|------------|
+| Overview | ![How It Works Overview](screenshots/1_HowItWorks.png) |
+| System Architecture | ![Architecture Diagram](screenshots/2_HowItWorks_Overview.png) |
+| Search Quality Progression | ![Quality Layers](screenshots/3_HowItWorks_SearchQuality.png) |
+| Key Concepts | ![Concepts Explained](screenshots/4_HowItWorks_KeyConcepts.png) |
+| Settings Guide | ![Settings Demystified](screenshots/5_HowItWorks_Settings.png) |
 
 ### More Screenshots
 
