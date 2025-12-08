@@ -72,7 +72,7 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
   └─────────────────────────────────────────┘
 ```
 
-> **Want to learn more?** Visit the **[How It Works](http://localhost:3000/how-it-works)** page in the app for interactive explanations of each concept, search quality progression, and settings guidance.
+> **Want to learn more?** The app includes an interactive **"How It Works"** page with detailed explanations of each concept, search quality progression, and settings guidance. See the [screenshots below](#how-it-works-page) or explore it yourself when running the app.
 
 ## Features
 
@@ -104,6 +104,13 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 
 ### How It Works Page
 
+The app includes a comprehensive "How It Works" documentation page explaining the search technology:
+
+![How It Works - Full Page](screenshots/HowItWorksFull_Semantic-Search.png)
+
+<details>
+<summary><strong>View Individual Sections</strong></summary>
+
 | Section | Screenshot |
 |---------|------------|
 | Overview | ![How It Works Overview](screenshots/1_HowItWorks.png) |
@@ -111,6 +118,8 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 | Search Quality Progression | ![Quality Layers](screenshots/3_HowItWorks_SearchQuality.png) |
 | Key Concepts | ![Concepts Explained](screenshots/4_HowItWorks_KeyConcepts.png) |
 | Settings Guide | ![Settings Demystified](screenshots/5_HowItWorks_Settings.png) |
+
+</details>
 
 ### More Screenshots
 
