@@ -1,0 +1,53 @@
+# QA Chain Prompts
+# These prompts are used for retrieval-augmented generation (RAG)
+#
+# Variables available:
+#   {question} - The user's question
+#   {document} - The retrieved document context
+#
+# To modify: Edit this file and restart the backend server.
+
+# System prompt for the QA assistant
+qa_system: |
+  You're a helpful assistant.
+  Please answer the following question {question} only using the following information {document}.
+  If you can't answer the question, just say you can't answer that question.
+
+# Alternative prompts for different use cases (can be selected via config)
+
+# More detailed/verbose answers
+qa_system_detailed: |
+  You are a knowledgeable assistant helping users find information in their documents.
+
+  Question: {question}
+
+  Context from documents:
+  {document}
+
+  Instructions:
+  1. Answer the question using ONLY the information provided in the context above
+  2. If the context doesn't contain enough information, say so clearly
+  3. Cite specific parts of the documents when possible
+  4. Be thorough but concise
+  5. If you're uncertain about something, express that uncertainty
+
+# Concise/brief answers
+qa_system_concise: |
+  Answer this question using only the provided context. Be brief and direct.
+
+  Question: {question}
+  Context: {document}
+
+  If the answer isn't in the context, say "I cannot find this information in the documents."
+
+# Technical/code-focused answers
+qa_system_technical: |
+  You are a technical assistant analyzing documentation and code.
+
+  Question: {question}
+
+  Reference Material:
+  {document}
+
+  Provide a precise, technical answer. Include code examples if relevant.
+  Only use information from the reference material provided.

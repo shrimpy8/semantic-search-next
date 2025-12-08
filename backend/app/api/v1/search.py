@@ -1,0 +1,394 @@
+"""
+Search API endpoints.
+
+Provides semantic search across collections with hybrid retrieval.
+"""
+
+import logging
+import re
+import time
+from typing import Any
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, status
+
+from app.api.deps import (
+    CollectionRepo,
+    DbSession,
+    DocumentRepo,
+    SettingsRepo,
+    require_collection,
+)
+from app.api.schemas import (
+    AnswerVerificationSchema,
+    CitationSchema,
+    SearchRequest,
+    SearchResponse,
+    SearchResultSchema,
+    SearchScoresSchema,
+)
+from app.config import get_settings
+from app.core.answer_verifier import AnswerVerifier
+from app.core.qa_chain import QAChain
+from app.db.models import SearchQuery
+from app.services.retrieval import HybridSearchServiceDep, VectorStoreService
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_section(content: str) -> str | None:
+    """Extract section heading from content if present."""
+    # Match markdown headings (# Heading, ## Heading, etc.)
+    match = re.match(r'^#{1,6}\s+(.+?)(?:\n|$)', content.strip())
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def _calculate_relevance_percent(final_score: float) -> int:
+    """
+    Convert final_score to 0-100% relevance display value.
+
+    When reranking is used, final_score is the rerank score (0-1).
+    When reranking is not used, final_score is the RRF fusion score (typically small values).
+
+    We use the final_score directly when it appears to be from reranking (0-1 range),
+    otherwise we scale up small RRF scores to be more meaningful.
+    """
+    if final_score <= 0:
+        return 0
+
+    # If score looks like rerank score (0-1 range), use it directly
+    if final_score <= 1.0:
+        return int(final_score * 100)
+    else:
+        # Shouldn't happen with reranking, but cap at 100
+        return 100
+
+router = APIRouter(prefix="/search", tags=["search"])
+
+
+def _build_chromadb_filter(
+    collection_id: UUID | None,
+    document_ids: list[UUID] | None,
+) -> dict[str, Any] | None:
+    """
+    Build ChromaDB filter from search request parameters.
+
+    CRITICAL: Use explicit $eq operators for ChromaDB metadata filtering.
+    Simple equality doesn't work - must use {"field": {"$eq": value}}.
+    """
+    conditions = []
+
+    if collection_id:
+        conditions.append({"collection_id": {"$eq": str(collection_id)}})
+
+    if document_ids:
+        if len(document_ids) == 1:
+            conditions.append({"document_id": {"$eq": str(document_ids[0])}})
+        else:
+            conditions.append({"document_id": {"$in": [str(d) for d in document_ids]}})
+
+    if not conditions:
+        return None
+    elif len(conditions) == 1:
+        return conditions[0]
+    else:
+        return {"$and": conditions}
+
+
+# Preset configurations for different retrieval modes
+PRESET_CONFIGS = {
+    "high_precision": {
+        "alpha": 0.85,       # Heavy semantic weight for precision
+        "top_k_multiplier": 1.0,  # Fewer results, more precise
+        "use_reranker": True,     # Always rerank for precision
+    },
+    "balanced": {
+        "alpha": 0.5,        # Equal weight semantic and keyword
+        "top_k_multiplier": 1.0,
+        "use_reranker": True,
+    },
+    "high_recall": {
+        "alpha": 0.3,        # More keyword weight for recall
+        "top_k_multiplier": 2.0,  # Fetch more results
+        "use_reranker": True,     # Rerank to sort the larger set
+    },
+}
+
+
+@router.post(
+    "",
+    response_model=SearchResponse,
+    summary="Execute a search",
+    description="Search across documents using hybrid retrieval (semantic + BM25) with reranking.",
+)
+async def search(
+    request: SearchRequest,
+    db: DbSession,
+    collection_repo: CollectionRepo,
+    document_repo: DocumentRepo,
+    settings_repo: SettingsRepo,
+    hybrid_search: HybridSearchServiceDep,
+    vector_store: VectorStoreService,
+) -> SearchResponse:
+    """Execute a search query using hybrid retrieval."""
+    start_time = time.perf_counter()
+
+    # Get database settings for defaults
+    db_settings = await settings_repo.get()
+
+    # Determine preset
+    preset = request.preset or db_settings.default_preset
+
+    # Apply preset-specific configurations OR use custom values
+    if preset in PRESET_CONFIGS and request.alpha is None:
+        # Using a preset - apply preset-specific parameters
+        preset_config = PRESET_CONFIGS[preset]
+        alpha = preset_config["alpha"]
+        use_reranker = preset_config["use_reranker"]
+        top_k = int(request.top_k * preset_config["top_k_multiplier"])
+    else:
+        # Custom mode or explicit alpha provided - use request/DB values
+        alpha = request.alpha if request.alpha is not None else db_settings.default_alpha
+        use_reranker = request.use_reranker if request.use_reranker is not None else db_settings.default_use_reranker
+        top_k = request.top_k
+
+    # Validate collection if specified (DRY helper)
+    collection_name = None
+    if request.collection_id:
+        collection = await require_collection(request.collection_id, collection_repo)
+        collection_name = collection.name
+
+    # Validate query is not empty (avoid wasted API calls)
+    if not request.query.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Search query cannot be empty",
+        )
+
+    # Execute hybrid search with reranking
+    try:
+        hybrid_results = hybrid_search.search(
+            query=request.query,
+            collection_id=str(request.collection_id) if request.collection_id else None,
+            document_ids=[str(d) for d in request.document_ids] if request.document_ids else None,
+            k=top_k,
+            method=preset,
+            alpha=alpha,
+            use_reranker=use_reranker,
+        )
+    except Exception as e:
+        logger.error(f"Search failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Search operation failed: {str(e)}",
+        )
+
+    # Convert to API response format
+    results: list[SearchResultSchema] = []
+
+    # Find max scores for normalization (to make relative comparisons meaningful)
+    max_bm25 = max((hr.bm25_score for hr in hybrid_results if hr.bm25_score is not None), default=1.0)
+    max_semantic = max((hr.semantic_score for hr in hybrid_results if hr.semantic_score is not None), default=1.0)
+    if max_bm25 <= 0:
+        max_bm25 = 1.0
+    if max_semantic <= 0:
+        max_semantic = 1.0
+
+    for i, hr in enumerate(hybrid_results):
+        doc = hr.document
+        metadata = doc.metadata or {}
+        doc_id = metadata.get("document_id", "")
+        coll_id = metadata.get("collection_id", "")
+
+        # Get document/collection names from metadata or lookup
+        doc_name = metadata.get("source", "Unknown")
+        coll_name_from_meta = metadata.get("collection_name", collection_name or "Unknown")
+
+        # Extract section heading if present
+        section = _extract_section(doc.page_content)
+
+        # Calculate relevance percentage from final_score (which is 0-1 when reranking)
+        relevance_percent = _calculate_relevance_percent(hr.final_score)
+
+        # Normalize BM25 score to 0-1 for display (original is unbounded)
+        # No artificial floor - show actual normalized score for transparency
+        normalized_bm25 = None
+        if hr.bm25_score is not None:
+            normalized_bm25 = min(hr.bm25_score / max_bm25, 1.0) if max_bm25 > 0 else 0.0
+
+        # Semantic score is already 0-1, pass through as-is
+        normalized_semantic = hr.semantic_score
+
+        # Extract chunk position for context expansion (P2)
+        chunk_index = metadata.get("chunk_index")
+        total_chunks = metadata.get("total_chunks")
+
+        # Fetch adjacent chunks for context expansion using settings
+        context_before = None
+        context_after = None
+        context_window = db_settings.context_window_size
+        if doc_id and chunk_index is not None and context_window > 0:
+            try:
+                adjacent = vector_store.get_adjacent_chunks(
+                    document_id=doc_id,
+                    chunk_index=chunk_index,
+                    before=context_window,
+                    after=context_window,
+                )
+                # Combine all before chunks into single context string
+                if adjacent.get("before"):
+                    context_before = "\n\n".join(
+                        chunk.page_content for chunk in adjacent["before"]
+                    )
+                # Combine all after chunks into single context string
+                if adjacent.get("after"):
+                    context_after = "\n\n".join(
+                        chunk.page_content for chunk in adjacent["after"]
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to fetch context for chunk {i}: {e}")
+
+        results.append(SearchResultSchema(
+            id=f"chunk_{i}",
+            document_id=UUID(doc_id) if doc_id else UUID("00000000-0000-0000-0000-000000000000"),
+            document_name=doc_name,
+            collection_id=UUID(coll_id) if coll_id else UUID("00000000-0000-0000-0000-000000000000"),
+            collection_name=coll_name_from_meta,
+            content=doc.page_content,
+            page=metadata.get("page"),
+            section=section,
+            verified=True,  # Always true - result came from indexed document
+            scores=SearchScoresSchema(
+                semantic_score=normalized_semantic,  # Use normalized version with 5% floor
+                bm25_score=normalized_bm25,
+                rerank_score=hr.rerank_score,
+                final_score=hr.final_score,
+                relevance_percent=relevance_percent,
+            ),
+            metadata={
+                k: v for k, v in metadata.items()
+                if k not in ["document_id", "collection_id", "source", "page", "chunk_index", "total_chunks"]
+            } | {"retrieval_method": hr.retrieval_method},
+            # Context expansion fields (P2)
+            context_before=context_before,
+            context_after=context_after,
+            chunk_index=chunk_index,
+            total_chunks=total_chunks,
+        ))
+
+    # Get threshold from settings
+    min_threshold = db_settings.min_score_threshold
+
+    # Separate high and low confidence results based on final_score threshold
+    high_confidence_results: list[SearchResultSchema] = []
+    low_confidence_results: list[SearchResultSchema] = []
+
+    for result in results:
+        if result.scores.final_score >= min_threshold:
+            high_confidence_results.append(result)
+        else:
+            low_confidence_results.append(result)
+
+    # Calculate latency
+    latency_ms = int((time.perf_counter() - start_time) * 1000)
+
+    # Log search query for analytics
+    search_log = SearchQuery(
+        query_text=request.query,
+        collection_id=request.collection_id,
+        retrieval_method=preset,
+        results_count=len(high_confidence_results),
+        latency_ms=latency_ms,
+    )
+    db.add(search_log)
+
+    # Generate RAG answer if requested and we have results
+    answer = None
+    answer_verification = None
+    if request.generate_answer and high_confidence_results:
+        try:
+            # Get OpenAI API key from settings
+            app_settings = get_settings()
+            openai_api_key = app_settings.openai_api_key
+
+            # Build context from top results
+            source_names = [r.document_name for r in high_confidence_results[:3]]
+            context_docs = "\n\n---\n\n".join([
+                f"[Source {i}] {r.document_name}\n{r.content}"
+                for i, r in enumerate(high_confidence_results[:3])  # Use top 3 results for context
+            ])
+
+            # Initialize QA chain and generate answer
+            qa_chain = QAChain(
+                model_name="gpt-4o-mini",
+                temperature=0.0,
+                api_key=openai_api_key,
+            )
+            answer = qa_chain.generate_answer(
+                question=request.query,
+                context=context_docs,
+            )
+            logger.info(f"RAG answer generated: {len(answer)} characters")
+
+            # Verify the answer against source documents
+            try:
+                verifier = AnswerVerifier(model_name="gpt-4o-mini", temperature=0.0, api_key=openai_api_key)
+                verification_result = verifier.verify(
+                    answer=answer,
+                    context=context_docs,
+                    sources=source_names,
+                )
+
+                # Convert to schema
+                answer_verification = AnswerVerificationSchema(
+                    confidence=verification_result.confidence,
+                    citations=[
+                        CitationSchema(
+                            claim=c.claim,
+                            source_index=c.source_index,
+                            source_name=c.source_name,
+                            quote=c.quote,
+                            verified=c.verified,
+                        )
+                        for c in verification_result.citations
+                    ],
+                    warning=verification_result.warning,
+                    verified_claims=verification_result.verified_claims,
+                    total_claims=verification_result.total_claims,
+                    coverage_percent=verification_result.coverage_percent,
+                )
+                logger.info(
+                    f"Answer verification: confidence={verification_result.confidence} "
+                    f"coverage={verification_result.coverage_percent}%"
+                )
+            except Exception as e:
+                logger.error(f"Answer verification failed: {e}", exc_info=True)
+                # Don't fail - just return without verification
+        except Exception as e:
+            logger.error(f"RAG answer generation failed: {e}", exc_info=True)
+            # Don't fail the request - just return without answer
+
+    # Calculate final latency (includes RAG if generated)
+    latency_ms = int((time.perf_counter() - start_time) * 1000)
+
+    logger.info(
+        f"Search completed: query='{request.query[:50]}' "
+        f"results={len(high_confidence_results)} low_confidence={len(low_confidence_results)} "
+        f"latency={latency_ms}ms preset={preset} alpha={alpha:.2f} top_k={top_k} reranker={use_reranker} "
+        f"rag={'yes' if answer else 'no'}"
+    )
+
+    return SearchResponse(
+        query=request.query,
+        results=high_confidence_results,
+        low_confidence_results=low_confidence_results,
+        low_confidence_count=len(low_confidence_results),
+        min_score_threshold=min_threshold,
+        answer=answer,
+        answer_verification=answer_verification,
+        sources=[r.document_name for r in high_confidence_results[:3]],
+        latency_ms=latency_ms,
+        retrieval_method=preset,
+    )

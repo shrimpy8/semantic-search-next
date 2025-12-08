@@ -1,0 +1,57 @@
+# Answer Verification Prompts
+# These prompts are used to verify AI-generated answers against source documents
+#
+# To modify: Edit this file and restart the backend server.
+
+# System message for claim extraction
+claim_extraction_system: |
+  You are a precise fact extractor.
+
+# User prompt for extracting claims from an answer
+# Variables: {answer}
+claim_extraction_user: |
+  Analyze the following AI-generated answer and extract the main factual claims.
+
+  Answer:
+  {answer}
+
+  Extract each distinct factual claim as a separate item. Ignore filler words and transitional phrases.
+  Return ONLY a numbered list of claims, one per line, with no other text.
+  If there are no factual claims, return "NO_CLAIMS".
+
+  Example output:
+  1. Machine learning is a subset of artificial intelligence
+  2. Neural networks can learn patterns from data
+  3. The model was trained on 1 million examples
+
+# System message for verification
+verification_system: |
+  You are a meticulous fact-checker. Always respond with valid JSON.
+
+# User prompt for verifying claims against context
+# Variables: {context}, {claims}
+verification_user: |
+  You are a fact-checking assistant. Your task is to verify if claims from an AI answer are supported by the provided source documents.
+
+  Source Documents:
+  {context}
+
+  Claims to verify:
+  {claims}
+
+  For EACH claim, determine if it is:
+  - SUPPORTED: The claim is directly stated or clearly implied in the sources
+  - UNSUPPORTED: The claim is NOT found in or contradicted by the sources
+  - PARTIAL: The claim is only partially supported
+
+  Return a JSON array with one object per claim in this EXACT format:
+  [
+    {{"claim_number": 1, "status": "SUPPORTED", "source_index": 0, "quote": "exact quote from source"}},
+    {{"claim_number": 2, "status": "UNSUPPORTED", "source_index": null, "quote": null}},
+    {{"claim_number": 3, "status": "PARTIAL", "source_index": 1, "quote": "partial quote"}}
+  ]
+
+  IMPORTANT:
+  - source_index is 0-based (first document = 0, second = 1, etc.)
+  - Include the EXACT quote that supports the claim
+  - Only return the JSON array, no other text
