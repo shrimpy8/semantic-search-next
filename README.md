@@ -82,7 +82,7 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 - Python 3.11+
 - Docker & Docker Compose
 
-> **Detailed Setup Guide**: See [INFRASTRUCTURE.md](./INFRASTRUCTURE.md) for comprehensive setup instructions including:
+> **Detailed Setup Guide**: See [INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md) for comprehensive setup instructions including:
 > - PostgreSQL & ChromaDB configuration
 > - Local AI providers (Ollama, Jina reranker)
 > - Cloud provider setup (OpenAI, Cohere, Voyage AI)
@@ -93,11 +93,13 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 ### 1. Clone and setup environment
 
 ```bash
-cd /Users/harshh/Documents/GitHub/semantic-search-next
+git clone https://github.com/shrimpy8/semantic-search-next.git
+cd semantic-search-next
 
-# Copy environment file
-cp .env.example .env
-# Edit .env with your API keys
+# Copy environment files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+# Edit with your API keys
 ```
 
 ### 2. Start Docker Services
@@ -198,8 +200,9 @@ NEXT_PUBLIC_DEBUG=false              # Set true for console logging
 ```
 semantic-search-next/
 ├── docker-compose.yml           # PostgreSQL + ChromaDB + pgAdmin
-├── ARCHITECTURE.md              # Detailed system design
-├── IN_PROGRESS.md               # Development session notes
+├── docs/
+│   ├── ARCHITECTURE.md          # Detailed system design
+│   └── INFRASTRUCTURE.md        # Setup guide for all services
 ├── backend/
 │   ├── .env.example             # Backend environment template
 │   ├── app/
@@ -427,4 +430,4 @@ curl -s http://localhost:8080/api/v1/health
 
 ## License
 
-Private project.
+MIT License
