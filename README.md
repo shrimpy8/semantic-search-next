@@ -104,22 +104,14 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 
 ### How It Works Page
 
-The app includes a comprehensive "How It Works" documentation page explaining the search technology:
+The app includes a comprehensive "How It Works" documentation page explaining the search technology.
 
-![How It Works - Full Page](screenshots/HowItWorksFull_Semantic-Search.png)
-
-<details>
-<summary><strong>View Individual Sections</strong></summary>
+**[View Full Page Screenshot](screenshots/HowItWorksFull_Semantic-Search.png)**
 
 | Section | Screenshot |
 |---------|------------|
 | Overview | ![How It Works Overview](screenshots/1_HowItWorks.png) |
-| System Architecture | ![Architecture Diagram](screenshots/2_HowItWorks_Overview.png) |
 | Search Quality Progression | ![Quality Layers](screenshots/3_HowItWorks_SearchQuality.png) |
-| Key Concepts | ![Concepts Explained](screenshots/4_HowItWorks_KeyConcepts.png) |
-| Settings Guide | ![Settings Demystified](screenshots/5_HowItWorks_Settings.png) |
-
-</details>
 
 ### More Screenshots
 
