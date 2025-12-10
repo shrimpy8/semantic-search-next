@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
             <SelectContent>
               <SelectItem value="2">Last 2 days</SelectItem>
               <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="15">Last 15 days</SelectItem>
+              <SelectItem value="14">Last 14 days</SelectItem>
             </SelectContent>
           </Select>
           <Button

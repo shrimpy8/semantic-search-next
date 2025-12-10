@@ -27,7 +27,7 @@ import { useEvaluationStats, useEvaluationResults } from '@/hooks';
 
 export default function EvalsPage() {
   // Filter state
-  const [days, setDays] = useState<number>(7);
+  const [days, setDays] = useState<number>(2);
   const [selectedCollection, setSelectedCollection] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -105,9 +105,9 @@ export default function EvalsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="2">Last 2 days</SelectItem>
               <SelectItem value="7">Last 7 days</SelectItem>
               <SelectItem value="14">Last 14 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
             </SelectContent>
           </Select>
           <Button
