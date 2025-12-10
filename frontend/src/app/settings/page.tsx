@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSettings, useUpdateSettings, useResetSettings, useSetupValidation } from '@/hooks';
-import { Settings as SettingsIcon, RefreshCw, Save, AlertCircle, Info, ExternalLink, Sparkles, Layers, CheckCircle2, Clock, Zap, FlaskConical, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Settings as SettingsIcon, RefreshCw, Save, AlertCircle, Info, ExternalLink, Sparkles, Layers, CheckCircle2, Clock, Zap, FlaskConical, AlertTriangle, ShieldCheck, Server, Database, Container, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -48,6 +48,7 @@ const EMBEDDING_PROVIDERS = {
     pricingUrl: 'https://openai.com/pricing',
     requiresApiKey: true,
     envVar: 'OPENAI_API_KEY',
+    color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
     models: [
       { value: 'text-embedding-3-large', label: 'text-embedding-3-large', dims: 3072, description: 'Best quality' },
       { value: 'text-embedding-3-small', label: 'text-embedding-3-small', dims: 1536, description: 'Fast & cheap' },
@@ -60,6 +61,7 @@ const EMBEDDING_PROVIDERS = {
     docsUrl: 'https://ollama.com/library',
     downloadUrl: 'https://ollama.com/download',
     requiresApiKey: false,
+    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
     models: [
       { value: 'ollama:nomic-embed-text:v1.5', label: 'nomic-embed-text:v1.5', dims: 768, description: 'Latest, fast' },
       { value: 'ollama:nomic-embed-text', label: 'nomic-embed-text', dims: 768, description: 'Fast, good quality' },
@@ -77,6 +79,7 @@ const EMBEDDING_PROVIDERS = {
     signupUrl: 'https://jina.ai/embeddings/#apiform',
     requiresApiKey: true,
     envVar: 'JINA_API_KEY',
+    color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
     models: [
       { value: 'jina:jina-embeddings-v2-base-en', label: 'jina-embeddings-v2-base-en', dims: 768, description: 'English, free tier' },
       { value: 'jina:jina-embeddings-v3', label: 'jina-embeddings-v3', dims: 1024, description: 'Latest, multilingual' },
@@ -89,6 +92,7 @@ const EMBEDDING_PROVIDERS = {
     signupUrl: 'https://dashboard.cohere.com/api-keys',
     requiresApiKey: true,
     envVar: 'COHERE_API_KEY',
+    color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300',
     models: [
       { value: 'cohere:embed-english-v3.0', label: 'embed-english-v3.0', dims: 1024, description: 'English optimized' },
       { value: 'cohere:embed-multilingual-v3.0', label: 'embed-multilingual-v3.0', dims: 1024, description: '100+ languages' },
@@ -101,6 +105,7 @@ const EMBEDDING_PROVIDERS = {
     signupUrl: 'https://dash.voyageai.com/',
     requiresApiKey: true,
     envVar: 'VOYAGE_API_KEY',
+    color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
     models: [
       { value: 'voyage:voyage-large-2', label: 'voyage-large-2', dims: 1536, description: 'Best for RAG' },
       { value: 'voyage:voyage-code-2', label: 'voyage-code-2', dims: 1536, description: 'Code optimized' },
@@ -126,6 +131,7 @@ const LLM_PROVIDERS = {
     description: 'Cloud API, requires OPENAI_API_KEY',
     requiresApiKey: true,
     envVar: 'OPENAI_API_KEY',
+    color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
     models: [
       { value: 'gpt-4o-mini', label: 'gpt-4o-mini', description: 'Fast & affordable', recommended: true },
       { value: 'gpt-4o', label: 'gpt-4o', description: 'Most capable' },
@@ -136,6 +142,7 @@ const LLM_PROVIDERS = {
     description: 'Claude models, requires ANTHROPIC_API_KEY',
     requiresApiKey: true,
     envVar: 'ANTHROPIC_API_KEY',
+    color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
     models: [
       { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', description: 'Best value', recommended: true },
       { value: 'claude-opus-4-20250514', label: 'Claude Opus 4', description: 'Most capable' },
@@ -145,6 +152,7 @@ const LLM_PROVIDERS = {
     label: 'Ollama (Local)',
     description: 'Run locally, no API key needed',
     requiresApiKey: false,
+    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
     models: [
       { value: 'llama3.2:3b', label: 'llama3.2:3b', description: 'Fast, 3B params', recommended: true },
       { value: 'deepseek-r1:8b', label: 'deepseek-r1:8b', description: 'Reasoning model' },
@@ -163,6 +171,18 @@ function getLLMProviderFromModel(modelValue: string | undefined): string | null 
     }
   }
   return null;
+}
+
+// Helper to format LLM model display value (e.g., "OpenAI / gpt-4o-mini")
+function formatLLMDisplayValue(modelValue: string | undefined): string {
+  if (!modelValue) return '';
+  for (const [, provider] of Object.entries(LLM_PROVIDERS)) {
+    const model = provider.models.find(m => m.value === modelValue);
+    if (model) {
+      return `${provider.label} / ${model.label}`;
+    }
+  }
+  return modelValue;
 }
 
 export default function SettingsPage() {
@@ -229,21 +249,134 @@ export default function SettingsPage() {
   if (isError) {
     return (
       <div className="container py-8">
-        <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl border border-dashed border-destructive/30 animate-in fade-in duration-300">
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-destructive/10 rounded-2xl blur-xl" />
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
-              <AlertCircle className="h-8 w-8 text-destructive" />
+        <div className="rounded-2xl border border-dashed border-destructive/30 animate-in fade-in duration-300 p-8">
+          {/* Header */}
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="relative mb-4">
+              <div className="absolute inset-0 bg-destructive/10 rounded-2xl blur-xl" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
+                <Server className="h-8 w-8 text-destructive" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Backend Services Unavailable</h3>
+            <p className="text-muted-foreground max-w-md leading-relaxed">
+              Unable to connect to the backend API. Please ensure the following services are running:
+            </p>
+          </div>
+
+          {/* Required Services */}
+          <div className="grid gap-4 md:grid-cols-3 mb-8">
+            {/* FastAPI Backend */}
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                  <Terminal className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm">FastAPI Backend</h4>
+                  <p className="text-xs text-muted-foreground">Port 8080</p>
+                </div>
+              </div>
+              <div className="text-xs space-y-1">
+                <p className="text-muted-foreground">Python API server handling all requests</p>
+                <code className="block bg-muted px-2 py-1 rounded text-[10px] font-mono">
+                  uvicorn app.main:app --port 8080
+                </code>
+              </div>
+            </div>
+
+            {/* PostgreSQL */}
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                  <Database className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm">PostgreSQL</h4>
+                  <p className="text-xs text-muted-foreground">Port 5432</p>
+                </div>
+              </div>
+              <div className="text-xs space-y-1">
+                <p className="text-muted-foreground">Stores documents, collections & settings</p>
+                <code className="block bg-muted px-2 py-1 rounded text-[10px] font-mono">
+                  docker-compose up -d postgres
+                </code>
+              </div>
+            </div>
+
+            {/* ChromaDB */}
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                  <Container className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm">ChromaDB</h4>
+                  <p className="text-xs text-muted-foreground">Port 8000</p>
+                </div>
+              </div>
+              <div className="text-xs space-y-1">
+                <p className="text-muted-foreground">Vector database for semantic search</p>
+                <code className="block bg-muted px-2 py-1 rounded text-[10px] font-mono">
+                  docker-compose up -d chromadb
+                </code>
+              </div>
             </div>
           </div>
-          <h3 className="text-xl font-semibold mb-2">Failed to load settings</h3>
-          <p className="text-muted-foreground mb-6 max-w-sm leading-relaxed">
-            {error instanceof Error ? error.message : 'An unexpected error occurred.'}
-          </p>
-          <Button onClick={() => refetch()} className="rounded-xl">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Try again
-          </Button>
+
+          {/* Quick Start */}
+          <div className="rounded-xl border bg-muted/30 p-4 mb-6">
+            <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500" />
+              Quick Start
+            </h4>
+            <div className="grid gap-2 text-xs font-mono">
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground shrink-0">1.</span>
+                <code className="bg-background px-2 py-1 rounded border">docker-compose up -d</code>
+                <span className="text-muted-foreground">Start PostgreSQL & ChromaDB</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground shrink-0">2.</span>
+                <code className="bg-background px-2 py-1 rounded border">cd backend && source .venv/bin/activate</code>
+                <span className="text-muted-foreground">Activate Python env</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground shrink-0">3.</span>
+                <code className="bg-background px-2 py-1 rounded border">uvicorn app.main:app --reload --port 8080</code>
+                <span className="text-muted-foreground">Start backend</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Documentation Links */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button onClick={() => refetch()} className="rounded-xl">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Try Again
+            </Button>
+            <a
+              href="https://github.com/shrimpy8/semantic-search-next#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Setup Documentation
+            </a>
+          </div>
+
+          {/* Error Details (collapsed) */}
+          {error instanceof Error && (
+            <details className="mt-6 text-xs">
+              <summary className="text-muted-foreground cursor-pointer hover:text-foreground">
+                Technical details
+              </summary>
+              <pre className="mt-2 bg-muted p-3 rounded-lg overflow-auto text-[10px]">
+                {error.message}
+              </pre>
+            </details>
+          )}
         </div>
       </div>
     );
@@ -624,15 +757,17 @@ export default function SettingsPage() {
                 }}
               >
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select model" />
+                  <SelectValue placeholder="Select model">
+                    {formData.answer_model && formatLLMDisplayValue(formData.answer_model)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(LLM_PROVIDERS).map(([key, provider]) => (
                     <SelectGroup key={key}>
-                      <SelectLabel className="text-xs font-semibold text-muted-foreground px-2">
+                      <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
                         {provider.label}
                         {provider.requiresApiKey && (
-                          <span className="ml-1 text-[10px] font-normal">(requires API key)</span>
+                          <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
                         )}
                       </SelectLabel>
                       {provider.models.map((model) => (
@@ -690,13 +825,23 @@ export default function SettingsPage() {
                 onValueChange={(value) => updateField('embedding_model', value)}
               >
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select model" />
+                  <SelectValue placeholder="Select model">
+                    {formData.embedding_model && (() => {
+                      const info = getProviderFromModel(formData.embedding_model);
+                      if (!info) return formData.embedding_model;
+                      const model = info.provider.models.find(m => m.value === formData.embedding_model);
+                      return `${info.provider.label} / ${model?.label || formData.embedding_model}`;
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(EMBEDDING_PROVIDERS).map(([key, provider]) => (
                     <SelectGroup key={key}>
-                      <SelectLabel className="text-xs font-semibold text-muted-foreground px-2">
+                      <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
                         {provider.label}
+                        {provider.requiresApiKey && (
+                          <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
+                        )}
                       </SelectLabel>
                       {provider.models.map((model) => (
                         <SelectItem key={model.value} value={model.value}>
@@ -893,7 +1038,11 @@ export default function SettingsPage() {
                 }}
               >
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select evaluation model" />
+                  <SelectValue placeholder="Select evaluation model">
+                    {formData.eval_judge_provider === 'disabled'
+                      ? 'Disabled'
+                      : formData.eval_judge_model && formatLLMDisplayValue(formData.eval_judge_model)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="disabled">
@@ -901,10 +1050,10 @@ export default function SettingsPage() {
                   </SelectItem>
                   {Object.entries(LLM_PROVIDERS).map(([key, provider]) => (
                     <SelectGroup key={key}>
-                      <SelectLabel className="text-xs font-semibold text-muted-foreground px-2">
+                      <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
                         {provider.label}
                         {provider.requiresApiKey && (
-                          <span className="ml-1 text-[10px] font-normal">(requires API key)</span>
+                          <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
                         )}
                       </SelectLabel>
                       {provider.models.map((model) => (
