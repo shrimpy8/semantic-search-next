@@ -16,17 +16,44 @@ export class ApiError extends Error {
     public data?: unknown
   ) {
     // Extract message from error response if available
-    const errorMessage = (data as { message?: string; detail?: string })?.message
-      || (data as { message?: string; detail?: string })?.detail
-      || statusText;
+    const serverMessage = (data as { message?: string; detail?: string })?.message
+      || (data as { message?: string; detail?: string })?.detail;
+
+    // Provide user-friendly messages for common HTTP errors
+    let errorMessage: string;
+    if (serverMessage) {
+      errorMessage = serverMessage;
+    } else if (status === 429) {
+      errorMessage = 'Too many requests. Please wait a moment and try again.';
+    } else if (status === 413) {
+      errorMessage = 'File is too large. Maximum size is 50MB.';
+    } else if (status === 415) {
+      errorMessage = 'Unsupported file type. Please upload PDF or TXT files.';
+    } else if (status === 500) {
+      errorMessage = 'Server error. Please try again later.';
+    } else if (status === 503) {
+      errorMessage = 'Service temporarily unavailable. Please try again later.';
+    } else {
+      errorMessage = statusText || `Request failed (${status})`;
+    }
+
     super(errorMessage);
     this.name = 'ApiError';
   }
 }
 
+export class NetworkError extends Error {
+  constructor(originalError?: Error) {
+    const message = 'Unable to connect to the server. Please check your internet connection and try again.';
+    super(message);
+    this.name = 'NetworkError';
+    this.cause = originalError;
+  }
+}
+
 export class TimeoutError extends Error {
   constructor(timeout: number) {
-    super(`Request timed out after ${timeout}ms`);
+    super(`Request timed out. The server is taking too long to respond. Please try again.`);
     this.name = 'TimeoutError';
   }
 }
@@ -52,7 +79,11 @@ async function fetchWithTimeout(
     if (error instanceof Error && error.name === 'AbortError') {
       throw new TimeoutError(timeout);
     }
-    throw error;
+    // Handle network errors (offline, DNS failure, etc.)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new NetworkError(error);
+    }
+    throw new NetworkError(error instanceof Error ? error : undefined);
   } finally {
     clearTimeout(timeoutId);
   }

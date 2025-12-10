@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Rate limiting configuration
 RATE_LIMIT_REQUESTS = 60  # requests per window
 RATE_LIMIT_WINDOW = 60  # window in seconds
-RATE_LIMIT_UPLOAD_REQUESTS = 10  # uploads per window (more restrictive)
+RATE_LIMIT_UPLOAD_REQUESTS = 30  # uploads per window (increased for batch uploads)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -74,11 +74,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Check rate limit
         if self._is_rate_limited(client_ip, current_time, limit):
             logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+
+            # User-friendly message based on endpoint type
+            if "/documents" in request.url.path:
+                message = "Upload rate limit reached. Please wait a moment and try uploading fewer files at once."
+            elif "/search" in request.url.path:
+                message = "Search rate limit reached. Please wait a few seconds before searching again."
+            else:
+                message = "Too many requests. Please wait a moment before trying again."
+
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
                     "error": "rate_limit_exceeded",
-                    "message": "Too many requests. Please wait before trying again.",
+                    "message": message,
                     "status_code": 429,
                     "details": [],
                 },
