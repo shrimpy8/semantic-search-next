@@ -1,0 +1,125 @@
+{
+  "description": "Diverse evaluation dataset to test retrieval configuration differences",
+  "queries": [
+    {
+      "category": "keyword_specific",
+      "why": "BM25 excels - exact term 'PRD' matters",
+      "collection": "Product Management",
+      "query": "What are the key sections of a PRD document?",
+      "expected_answer": "A PRD typically includes sections like problem statement, goals, user stories, requirements, success metrics, and timeline.",
+      "test_hypothesis": "high_recall (alpha=0.3) should find more PRD-specific content"
+    },
+    {
+      "category": "keyword_specific",
+      "why": "Specific year lookup - keyword '2023' crucial",
+      "collection": "Investments",
+      "query": "What was Berkshire's operating earnings in 2023?",
+      "expected_answer": "Financial figures from the 2023 shareholder letter.",
+      "test_hypothesis": "BM25 will find exact year match better"
+    },
+    {
+      "category": "semantic_conceptual",
+      "why": "No exact keywords - needs semantic understanding",
+      "collection": "AI Skills for PMs",
+      "query": "How can I avoid burnout while managing a product?",
+      "expected_answer": "Tips about productivity, automation, delegation through AI tools.",
+      "test_hypothesis": "high_precision (alpha=0.85) should understand intent better"
+    },
+    {
+      "category": "semantic_conceptual",
+      "why": "Synonym-heavy - 'investment philosophy' vs 'how to invest'",
+      "collection": "Investments",
+      "query": "What is Warren Buffett's approach to evaluating businesses?",
+      "expected_answer": "Focus on durable competitive advantages, management quality, reasonable prices.",
+      "test_hypothesis": "Semantic search finds conceptually similar content"
+    },
+    {
+      "category": "specific_fact",
+      "why": "Tests precision - need exact number/name",
+      "collection": "Product Management",
+      "query": "What are the 4 key PM deliverables mentioned?",
+      "expected_answer": "The top 4 deliverables from the specific article.",
+      "test_hypothesis": "Smaller chunks with high precision should isolate the list"
+    },
+    {
+      "category": "specific_fact",
+      "why": "Tests precision - specific book titles",
+      "collection": "Product Management",
+      "query": "Which books should product managers read?",
+      "expected_answer": "List of 11 recommended PM books with titles.",
+      "test_hypothesis": "Needs to retrieve the specific book list document"
+    },
+    {
+      "category": "broad_synthesis",
+      "why": "Tests coverage - needs info from multiple docs",
+      "collection": "AI Skills for PMs",
+      "query": "What are all the different ways ChatGPT can help product managers?",
+      "expected_answer": "Comprehensive list: user stories, competitor analysis, PRDs, roadmaps, etc.",
+      "test_hypothesis": "high_recall with more top_k should find more use cases"
+    },
+    {
+      "category": "broad_synthesis",
+      "why": "Tests coverage - spans multiple years",
+      "collection": "Investments",
+      "query": "How has Berkshire's investment strategy evolved over the past 5 years?",
+      "expected_answer": "Changes and consistencies across 2020-2024 letters.",
+      "test_hypothesis": "Needs to retrieve from multiple documents"
+    },
+    {
+      "category": "technical_term",
+      "why": "BM25 matches exact term 'TPM'",
+      "collection": "AI Skills for PMs",
+      "query": "What is the role of a TPM in generative AI products?",
+      "expected_answer": "Technical program manager responsibilities in GenAI.",
+      "test_hypothesis": "Keyword 'TPM' is crucial for finding right doc"
+    },
+    {
+      "category": "technical_term",
+      "why": "Tests 'metrics' keyword matching",
+      "collection": "Product Management",
+      "query": "How should I structure product metrics?",
+      "expected_answer": "Framework for thinking about metrics from the metrics article.",
+      "test_hypothesis": "Keyword 'metrics' should boost correct document"
+    },
+    {
+      "category": "interview_prep",
+      "why": "Tests semantic - 'interview' concept",
+      "collection": "Product Management",
+      "query": "How do I prepare for a PM interview at a top company?",
+      "expected_answer": "Interview experience insights and preparation tips.",
+      "test_hypothesis": "Semantic understanding of 'prepare' matches 'experience'"
+    },
+    {
+      "category": "comparison",
+      "why": "Tests retrieval breadth - needs multiple tools",
+      "collection": "AI Skills for PMs",
+      "query": "Compare different AI writing tools available in 2023",
+      "expected_answer": "Comparison of 5+ AI writing tools with pros/cons.",
+      "test_hypothesis": "Needs coverage of multiple tools from the article"
+    },
+    {
+      "category": "how_to",
+      "why": "Procedural knowledge - semantic understanding",
+      "collection": "AI Skills for PMs",
+      "query": "What's the best way to write user stories using AI?",
+      "expected_answer": "Step-by-step process for AI-assisted user story writing.",
+      "test_hypothesis": "Semantic search understands 'best way' = methodology"
+    },
+    {
+      "category": "philosophy",
+      "why": "Abstract concepts - pure semantic",
+      "collection": "Investments",
+      "query": "What makes a business have a durable competitive advantage?",
+      "expected_answer": "Buffett's moat concept: brand, switching costs, network effects.",
+      "test_hypothesis": "No keywords match - needs semantic understanding"
+    },
+    {
+      "category": "negative_test",
+      "why": "Query about something NOT in documents",
+      "collection": "Product Management",
+      "query": "How do I implement Kubernetes for my product?",
+      "expected_answer": "This topic is not covered in the PM documents.",
+      "test_hypothesis": "Should have low relevance scores - tests calibration"
+    }
+  ]
+}

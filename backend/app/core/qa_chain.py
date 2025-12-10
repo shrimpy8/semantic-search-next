@@ -5,14 +5,13 @@ Handles retrieval-augmented generation (RAG) for answering questions based on do
 """
 
 import logging
-import os
 from collections.abc import Generator
 
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.vectorstores import VectorStoreRetriever
-from langchain_openai import ChatOpenAI
 
+from app.core.llm_factory import LLMFactory
 from app.prompts import prompts
 
 logger = logging.getLogger(__name__)
@@ -28,55 +27,62 @@ class QAChain:
     3. Generates answer using LLM
     4. Streams the response token-by-token
 
+    Supports multiple LLM providers through LLMFactory:
+    - openai: GPT-4, GPT-4o-mini, etc.
+    - anthropic: Claude models
+    - ollama: Local models (Mistral, Llama3, etc.)
+
     Attributes:
-        llm_model: ChatOpenAI model for generation
+        llm_model: LLM model for generation
         retriever: Vector store retriever for finding relevant chunks
         system_prompt: Template for QA system prompt
 
     Example:
         >>> qa = QAChain(
+        ...     provider="openai",
         ...     model_name="gpt-4o-mini",
         ...     retriever=retriever,
-        ...     system_prompt="Answer based on: {document}"
         ... )
-        >>> for chunk in qa.stream_answer("What is AI?"):
+        >>> for chunk in qa.stream_answer("What is AI?", context):
         ...     print(chunk, end="")
     """
 
     def __init__(
         self,
-        model_name: str = "gpt-4o-mini",
+        provider: str = "openai",
+        model_name: str | None = None,
         temperature: float = 0.0,
         retriever: VectorStoreRetriever = None,
         system_prompt: str = None,
         prompt_key: str = "qa_system",
-        api_key: str = None,
     ):
         """
         Initialize the QA chain.
 
         Args:
-            model_name: Name of ChatOpenAI model
+            provider: LLM provider (openai, anthropic, ollama)
+            model_name: Name of model (defaults to provider's default)
             temperature: Model temperature (0.0 = deterministic)
             retriever: Vector store retriever instance
             system_prompt: System prompt template with {question} and {document} placeholders
                           (overrides prompt_key if provided)
             prompt_key: Key in prompts/qa.yaml to use (default: "qa_system")
                        Options: qa_system, qa_system_detailed, qa_system_concise, qa_system_technical
-            api_key: OpenAI API key (falls back to OPENAI_API_KEY env var)
         """
-        self.model_name = model_name
+        self.provider = provider
+        self.model_name = model_name or LLMFactory.get_default_model(provider)
         self.temperature = temperature
         self.retriever = retriever
 
-        # Get API key from param or environment
-        key = api_key or os.getenv("OPENAI_API_KEY")
-        if not key:
-            raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var or pass api_key parameter.")
-
-        # Initialize LLM with explicit API key
-        self.llm_model = ChatOpenAI(model=model_name, temperature=temperature, api_key=key)
-        logger.info(f"Initialized ChatOpenAI: model={model_name}, temp={temperature}")
+        # Initialize LLM using factory
+        self.llm_model = LLMFactory.create(
+            provider=provider,
+            model=self.model_name,
+            temperature=temperature,
+        )
+        logger.info(
+            f"Initialized QAChain: provider={provider}, model={self.model_name}, temp={temperature}"
+        )
 
         # Load system prompt from external file or use provided override
         if system_prompt:

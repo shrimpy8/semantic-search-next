@@ -230,33 +230,75 @@ export default function AnalyticsPage() {
                 ))}
               </div>
             ) : trends?.data?.length ? (
-              <div className="h-48 flex items-end gap-1">
-                {trends.data.slice(-28).map((point, index) => {
-                  const height = (point.search_count / maxTrendCount) * 100;
-                  const date = new Date(point.period);
-                  return (
-                    <div
-                      key={index}
-                      className="flex-1 group relative"
-                    >
-                      <div
-                        className="w-full bg-primary/80 hover:bg-primary rounded-t transition-all"
-                        style={{ height: `${Math.max(height, 2)}%` }}
-                      />
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                        <div className="bg-popover border rounded-lg p-2 shadow-lg text-xs whitespace-nowrap">
-                          <div className="font-medium">{point.search_count} searches</div>
-                          <div className="text-muted-foreground">
-                            {days <= 7
-                              ? date.toLocaleString('en-US', { hour: 'numeric', day: 'numeric', month: 'short' })
-                              : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                            }
+              <div className="space-y-2">
+                {/* Chart with Y-axis */}
+                <div className="flex gap-2">
+                  {/* Y-axis labels */}
+                  <div className="flex flex-col justify-between text-xs text-muted-foreground w-8 text-right pr-1 h-48">
+                    <span>{maxTrendCount}</span>
+                    <span>{Math.round(maxTrendCount / 2)}</span>
+                    <span>0</span>
+                  </div>
+                  {/* Bars */}
+                  <div className="flex-1 h-48 flex items-end gap-0.5">
+                    {trends.data.slice(-28).map((point, index) => {
+                      const height = (point.search_count / maxTrendCount) * 100;
+                      const date = new Date(point.period);
+                      return (
+                        <div
+                          key={index}
+                          className="flex-1 group relative h-full flex items-end"
+                        >
+                          <div
+                            className="w-full bg-primary/80 hover:bg-primary rounded-t transition-all"
+                            style={{ height: `${Math.max(height, 2)}%` }}
+                          />
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            <div className="bg-popover border rounded-lg p-2 shadow-lg text-xs whitespace-nowrap">
+                              <div className="font-medium">{point.search_count} searches</div>
+                              <div className="text-muted-foreground">
+                                {days <= 7
+                                  ? date.toLocaleString('en-US', { hour: 'numeric', day: 'numeric', month: 'short' })
+                                  : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                }
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* X-axis labels */}
+                <div className="flex gap-2">
+                  {/* Spacer for Y-axis width */}
+                  <div className="w-8" />
+                  {/* X-axis time labels */}
+                  <div className="flex-1 flex justify-between text-xs text-muted-foreground px-1">
+                    {(() => {
+                      const dataSlice = trends.data.slice(-28);
+                      if (dataSlice.length === 0) return null;
+                      // Show first, middle, and last labels
+                      const firstDate = new Date(dataSlice[0].period);
+                      const lastDate = new Date(dataSlice[dataSlice.length - 1].period);
+                      const midIndex = Math.floor(dataSlice.length / 2);
+                      const midDate = new Date(dataSlice[midIndex].period);
+
+                      const formatLabel = (date: Date) =>
+                        days <= 7
+                          ? date.toLocaleString('en-US', { hour: 'numeric', day: 'numeric', month: 'short' })
+                          : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                      return (
+                        <>
+                          <span>{formatLabel(firstDate)}</span>
+                          <span>{formatLabel(midDate)}</span>
+                          <span>{formatLabel(lastDate)}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="h-48 flex items-center justify-center text-muted-foreground">

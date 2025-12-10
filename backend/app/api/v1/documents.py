@@ -25,6 +25,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.api.deps import (
     CollectionRepo,
     DocumentRepo,
+    SettingsRepo,
     require_collection,
     require_document,
 )
@@ -35,7 +36,6 @@ from app.api.schemas import (
     DocumentListResponse,
     DocumentResponse,
 )
-from app.config import get_settings
 from app.db.models import Document
 from app.services.retrieval import HybridSearchServiceDep, VectorStoreService
 
@@ -76,13 +76,14 @@ async def process_and_index_document(
     vector_store,
     document_repo: DocumentRepo,
     collection_repo: CollectionRepo,
+    chunk_size: int,
+    chunk_overlap: int,
 ) -> int:
     """
     Process document content and index into ChromaDB.
 
     Returns the number of chunks created.
     """
-    settings = get_settings()
     temp_path = None
 
     try:
@@ -104,8 +105,8 @@ async def process_and_index_document(
 
         # Split into chunks
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
             add_start_index=True,
         )
         chunks = splitter.split_documents(pages)
@@ -240,6 +241,7 @@ async def upload_document(
     request: Request,
     collection_repo: CollectionRepo,
     document_repo: DocumentRepo,
+    settings_repo: SettingsRepo,
     vector_store: VectorStoreService,
     search_service: HybridSearchServiceDep,
     file: UploadFile = File(...),
@@ -247,6 +249,9 @@ async def upload_document(
     """Upload a document to a collection."""
     # Use DRY helper for 404 check
     collection = await require_collection(collection_id, collection_repo)
+
+    # Get DB settings for chunk configuration
+    db_settings = await settings_repo.get()
 
     # Validate file type
     extension = validate_file(file)
@@ -303,6 +308,8 @@ async def upload_document(
                 vector_store=vector_store,
                 document_repo=document_repo,
                 collection_repo=collection_repo,
+                chunk_size=db_settings.chunk_size,
+                chunk_overlap=db_settings.chunk_overlap,
             )
             logger.info(f"Document {document.id} processed: {chunk_count} chunks indexed")
 

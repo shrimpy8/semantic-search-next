@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, BarChart3, Lightbulb } from 'lucide-react';
+import { Sparkles, BarChart3, Lightbulb, FlaskConical } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { HealthIndicator } from './health-indicator';
 import { cn } from '@/lib/utils';
@@ -63,6 +63,18 @@ export function Header() {
             >
               <BarChart3 className="h-3.5 w-3.5" />
               Analytics
+            </Link>
+            <Link
+              href="/evals"
+              className={cn(
+                'px-3 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5',
+                isActive('/evals')
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              <FlaskConical className="h-3.5 w-3.5" />
+              Evals
             </Link>
             <Link
               href="/how-it-works"

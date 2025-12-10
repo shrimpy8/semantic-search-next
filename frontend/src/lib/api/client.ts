@@ -52,8 +52,8 @@ export class NetworkError extends Error {
 }
 
 export class TimeoutError extends Error {
-  constructor(timeout: number) {
-    super(`Request timed out. The server is taking too long to respond. Please try again.`);
+  constructor(timeoutMs: number) {
+    super(`Request timed out after ${Math.round(timeoutMs / 1000)}s. The server is taking too long to respond. Please try again.`);
     this.name = 'TimeoutError';
   }
 }

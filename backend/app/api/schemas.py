@@ -197,7 +197,12 @@ class SearchRequest(BaseModel):
     collection_id: UUID | None = None
     document_ids: list[UUID] | None = None
     preset: str = Field(default="balanced", pattern="^(high_precision|balanced|high_recall)$")
-    top_k: int = Field(default=5, ge=1, le=50)
+    top_k: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Number of results to retrieve. Uses default from settings if not provided."
+    )
     alpha: float | None = Field(
         default=None,
         ge=0.0,
@@ -328,6 +333,36 @@ class SearchResponse(BaseModel):
     latency_ms: int
     retrieval_method: str
 
+    # Search configuration (for evaluation capture)
+    search_alpha: float | None = Field(
+        default=None,
+        description="Semantic weight used (0=BM25 only, 1=semantic only)"
+    )
+    search_use_reranker: bool | None = Field(
+        default=None,
+        description="Whether reranking was enabled"
+    )
+    reranker_provider: str | None = Field(
+        default=None,
+        description="Reranker used (jina, cohere)"
+    )
+    chunk_size: int | None = Field(
+        default=None,
+        description="Document chunk size in characters"
+    )
+    chunk_overlap: int | None = Field(
+        default=None,
+        description="Overlap between chunks in characters"
+    )
+    embedding_model: str | None = Field(
+        default=None,
+        description="Embedding model used for semantic search"
+    )
+    answer_model: str | None = Field(
+        default=None,
+        description="LLM model used for answer generation"
+    )
+
 
 # ============================================================================
 # Health Schemas
@@ -422,6 +457,22 @@ class SettingsResponse(BaseModel):
         description="Number of chunks to fetch before/after matched chunk (1-3)"
     )
 
+    # Evaluation settings
+    eval_judge_provider: str = Field(
+        description="LLM provider for evaluations (openai, anthropic, ollama, disabled)"
+    )
+    eval_judge_model: str = Field(
+        description="LLM model for evaluations (varies by provider)"
+    )
+
+    # Answer generation settings
+    answer_provider: str = Field(
+        description="LLM provider for RAG answer generation (openai, anthropic, ollama)"
+    )
+    answer_model: str = Field(
+        description="LLM model for answer generation (varies by provider)"
+    )
+
     # Timestamps
     updated_at: datetime
 
@@ -443,6 +494,10 @@ class SettingsResponse(BaseModel):
             min_score_threshold=model.min_score_threshold,
             default_generate_answer=model.default_generate_answer,
             context_window_size=model.context_window_size,
+            eval_judge_provider=model.eval_judge_provider,
+            eval_judge_model=model.eval_judge_model,
+            answer_provider=model.answer_provider,
+            answer_model=model.answer_model,
             updated_at=model.updated_at,
         )
 
@@ -527,6 +582,47 @@ class SettingsUpdate(BaseModel):
         le=3,
         description="Number of chunks to fetch before/after matched chunk (1-3)"
     )
+
+    # Evaluation settings
+    eval_judge_provider: str | None = Field(
+        default=None,
+        pattern="^(openai|anthropic|ollama|disabled)$",
+        description="LLM provider for evaluations (openai, anthropic, ollama, disabled)"
+    )
+    eval_judge_model: str | None = Field(
+        default=None,
+        max_length=100,
+        description="LLM model for evaluations (varies by provider)"
+    )
+
+    # Answer generation settings
+    answer_provider: str | None = Field(
+        default=None,
+        pattern="^(openai|anthropic|ollama)$",
+        description="LLM provider for RAG answer generation (openai, anthropic, ollama)"
+    )
+    answer_model: str | None = Field(
+        default=None,
+        max_length=100,
+        description="LLM model for answer generation (varies by provider)"
+    )
+
+
+class SetupValidationItem(BaseModel):
+    """Individual validation check result."""
+
+    name: str = Field(description="Name of the check (e.g., 'OpenAI API Key')")
+    status: str = Field(description="Status: 'ok', 'warning', 'error', 'not_configured'")
+    message: str = Field(description="Human-readable status message")
+    required: bool = Field(description="Whether this is required for basic operation")
+
+
+class SetupValidationResponse(BaseModel):
+    """Response for setup validation check."""
+
+    ready: bool = Field(description="Whether system is ready for search operations")
+    checks: list[SetupValidationItem] = Field(description="Individual validation checks")
+    summary: str = Field(description="Summary message about overall setup status")
 
 
 # ============================================================================
@@ -623,3 +719,304 @@ class OperationResult(BaseModel, Generic[T]):
     @property
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
+
+
+# ============================================================================
+# Evaluation Schemas (Ground Truth + Evaluation Results)
+# ============================================================================
+
+
+class GroundTruthCreate(BaseModel):
+    """Schema for creating a ground truth entry."""
+
+    collection_id: UUID = Field(description="Collection this ground truth belongs to")
+    query: str = Field(..., min_length=1, max_length=2000, description="The question/query")
+    expected_answer: str = Field(..., min_length=1, description="The expected/gold standard answer")
+    expected_sources: list[str] | None = Field(
+        default=None,
+        description="Optional: document names that should be retrieved"
+    )
+    notes: str | None = Field(default=None, description="Optional notes about this ground truth")
+
+
+class GroundTruthUpdate(BaseModel):
+    """Schema for updating a ground truth entry (all fields optional)."""
+
+    query: str | None = Field(None, min_length=1, max_length=2000, description="The question/query")
+    expected_answer: str | None = Field(None, min_length=1, description="The expected/gold standard answer")
+    expected_sources: list[str] | None = Field(default=None, description="Document names that should be retrieved")
+    notes: str | None = Field(default=None, description="Notes about this ground truth")
+
+
+class GroundTruthResponse(BaseModel):
+    """Schema for ground truth response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    collection_id: UUID
+    query: str
+    expected_answer: str
+    expected_sources: list[str] | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_model(cls, model: Any) -> "GroundTruthResponse":
+        """Convert SQLAlchemy model to Pydantic schema."""
+        return cls(
+            id=model.id,
+            collection_id=model.collection_id,
+            query=model.query,
+            expected_answer=model.expected_answer,
+            expected_sources=model.expected_sources,
+            notes=model.notes,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
+
+class GroundTruthListResponse(BaseModel):
+    """Paginated ground truth list response."""
+
+    data: list[GroundTruthResponse]
+    has_more: bool = False
+    total_count: int = 0
+    next_cursor: str | None = None
+
+
+class EvaluationScoresSchema(BaseModel):
+    """Evaluation scores breakdown."""
+
+    # Retrieval metrics (0.0-1.0)
+    context_relevance: float | None = Field(default=None, description="Are retrieved chunks relevant to query?")
+    context_precision: float | None = Field(default=None, description="Are top results more relevant than lower?")
+    context_coverage: float | None = Field(default=None, description="Do chunks cover all query aspects?")
+
+    # Answer metrics (0.0-1.0)
+    faithfulness: float | None = Field(default=None, description="Is answer grounded in context (no hallucinations)?")
+    answer_relevance: float | None = Field(default=None, description="Does answer address the question?")
+    completeness: float | None = Field(default=None, description="Does answer cover all aspects?")
+
+    # Ground truth comparison (0.0-1.0)
+    ground_truth_similarity: float | None = Field(default=None, description="Similarity to expected answer")
+
+    # Aggregate scores
+    retrieval_score: float | None = Field(default=None, description="Weighted average of retrieval metrics")
+    answer_score: float | None = Field(default=None, description="Weighted average of answer metrics")
+    overall_score: float | None = Field(default=None, description="Overall evaluation score")
+
+
+class SearchConfigSchema(BaseModel):
+    """Search configuration captured at evaluation time."""
+
+    search_alpha: float | None = Field(default=None, description="Semantic weight (0=BM25 only, 1=semantic only)")
+    search_preset: str | None = Field(default=None, description="Search preset (balanced, high_precision, high_recall, custom)")
+    search_use_reranker: bool | None = Field(default=None, description="Whether reranking was enabled")
+    reranker_provider: str | None = Field(default=None, description="Reranker used (jina, cohere, or null)")
+    chunk_size: int | None = Field(default=None, description="Document chunk size in characters")
+    chunk_overlap: int | None = Field(default=None, description="Overlap between chunks in characters")
+    embedding_model: str | None = Field(default=None, description="Embedding model used for semantic search")
+    answer_model: str | None = Field(default=None, description="LLM model used for answer generation")
+
+
+class EvaluationResultResponse(BaseModel):
+    """Schema for evaluation result response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    search_query_id: UUID | None = None
+    ground_truth_id: UUID | None = None
+    evaluation_run_id: UUID | None = None
+
+    # Input data
+    query: str
+    generated_answer: str | None = None
+    expected_answer: str | None = None
+
+    # Judge info
+    judge_provider: str
+    judge_model: str
+
+    # Scores
+    scores: EvaluationScoresSchema
+
+    # Search configuration (captured at evaluation time)
+    search_config: SearchConfigSchema | None = None
+
+    # Metadata
+    eval_latency_ms: int | None = None
+    error_message: str | None = None
+    created_at: datetime
+
+    @classmethod
+    def from_model(cls, model: Any) -> "EvaluationResultResponse":
+        """Convert SQLAlchemy model to Pydantic schema."""
+        # Build search config if any field is set
+        search_config = None
+        # Use getattr with defaults for optional fields that may not exist in older DB records
+        embedding_model = getattr(model, 'embedding_model', None)
+        answer_model = getattr(model, 'answer_model', None)
+        if any([
+            model.search_alpha is not None,
+            model.search_preset is not None,
+            model.search_use_reranker is not None,
+            model.reranker_provider is not None,
+            model.chunk_size is not None,
+            model.chunk_overlap is not None,
+            embedding_model is not None,
+            answer_model is not None,
+        ]):
+            search_config = SearchConfigSchema(
+                search_alpha=model.search_alpha,
+                search_preset=model.search_preset,
+                search_use_reranker=model.search_use_reranker,
+                reranker_provider=model.reranker_provider,
+                chunk_size=model.chunk_size,
+                chunk_overlap=model.chunk_overlap,
+                embedding_model=embedding_model,
+                answer_model=answer_model,
+            )
+
+        return cls(
+            id=model.id,
+            search_query_id=model.search_query_id,
+            ground_truth_id=model.ground_truth_id,
+            evaluation_run_id=model.evaluation_run_id,
+            query=model.query,
+            generated_answer=model.generated_answer,
+            expected_answer=model.expected_answer,
+            judge_provider=model.judge_provider,
+            judge_model=model.judge_model,
+            scores=EvaluationScoresSchema(
+                context_relevance=model.context_relevance,
+                context_precision=model.context_precision,
+                context_coverage=model.context_coverage,
+                faithfulness=model.faithfulness,
+                answer_relevance=model.answer_relevance,
+                completeness=model.completeness,
+                ground_truth_similarity=model.ground_truth_similarity,
+                retrieval_score=model.retrieval_score,
+                answer_score=model.answer_score,
+                overall_score=model.overall_score,
+            ),
+            search_config=search_config,
+            eval_latency_ms=model.eval_latency_ms,
+            error_message=model.error_message,
+            created_at=model.created_at,
+        )
+
+
+class EvaluationResultListResponse(BaseModel):
+    """Paginated evaluation result list response."""
+
+    data: list[EvaluationResultResponse]
+    has_more: bool = False
+    total_count: int = 0
+    next_cursor: str | None = None
+
+
+class EvaluationStatsResponse(BaseModel):
+    """Aggregate evaluation statistics."""
+
+    total_evaluations: int = Field(description="Total number of evaluations")
+    avg_overall_score: float | None = Field(default=None, description="Average overall score")
+    avg_retrieval_score: float | None = Field(default=None, description="Average retrieval score")
+    avg_answer_score: float | None = Field(default=None, description="Average answer score")
+
+    # Individual metric averages
+    avg_context_relevance: float | None = None
+    avg_context_precision: float | None = None
+    avg_context_coverage: float | None = None
+    avg_faithfulness: float | None = None
+    avg_answer_relevance: float | None = None
+    avg_completeness: float | None = None
+
+    # Score distribution
+    excellent_count: int = Field(default=0, description="Scores > 0.8")
+    good_count: int = Field(default=0, description="Scores 0.6-0.8")
+    moderate_count: int = Field(default=0, description="Scores 0.4-0.6")
+    poor_count: int = Field(default=0, description="Scores < 0.4")
+
+    period_days: int = Field(description="Number of days covered by stats")
+
+
+class ChunkForEvaluation(BaseModel):
+    """Schema for a chunk used in evaluation."""
+
+    content: str = Field(..., description="The chunk text content")
+    source: str | None = Field(default=None, description="Source document name")
+    metadata: dict[str, Any] | None = Field(default=None, description="Additional metadata")
+
+
+class EvaluateRequest(BaseModel):
+    """Schema for evaluating a Q&A pair."""
+
+    query: str = Field(..., min_length=1, max_length=2000, description="The search query")
+    answer: str = Field(..., min_length=1, description="The generated answer to evaluate")
+    chunks: list[ChunkForEvaluation] = Field(
+        ...,
+        min_length=1,
+        description="Retrieved chunks used to generate the answer"
+    )
+    ground_truth_id: UUID | None = Field(
+        default=None,
+        description="Optional ground truth ID for comparison"
+    )
+    search_query_id: UUID | None = Field(
+        default=None,
+        description="Optional search query ID to link evaluation to"
+    )
+    provider: str | None = Field(
+        default=None,
+        description="Judge provider (openai, anthropic, ollama). Defaults to config."
+    )
+    model: str | None = Field(
+        default=None,
+        description="Judge model. Defaults to provider default."
+    )
+
+    # Search configuration (optional - captured for comparison)
+    search_alpha: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Semantic weight used (0=BM25 only, 1=semantic only)"
+    )
+    search_preset: str | None = Field(
+        default=None,
+        description="Search preset used (balanced, high_precision, high_recall, custom)"
+    )
+    search_use_reranker: bool | None = Field(
+        default=None,
+        description="Whether reranking was enabled"
+    )
+    reranker_provider: str | None = Field(
+        default=None,
+        description="Reranker used (jina, cohere)"
+    )
+    chunk_size: int | None = Field(
+        default=None,
+        description="Document chunk size in characters"
+    )
+    chunk_overlap: int | None = Field(
+        default=None,
+        description="Overlap between chunks in characters"
+    )
+    embedding_model: str | None = Field(
+        default=None,
+        description="Embedding model used for semantic search"
+    )
+    answer_model: str | None = Field(
+        default=None,
+        description="LLM model used for answer generation"
+    )
+
+
+class AvailableProvidersResponse(BaseModel):
+    """Response with available and registered judge providers."""
+
+    available: list[str] = Field(description="Providers ready to use (API key configured)")
+    registered: list[str] = Field(description="All registered providers")

@@ -5,10 +5,13 @@ import { SearchResultCard } from './search-result-card';
 import { ConfidenceBadge } from './confidence-badge';
 import { AnswerWithCitations } from './answer-with-citations';
 import { type SearchResponse } from '@/lib/api';
-import { Clock, Search, Sparkles, Lightbulb, RefreshCw, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Search, Sparkles, Lightbulb, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, FlaskConical } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { RunEvaluationDialog } from '@/components/evals/run-evaluation-dialog';
+import type { ChunkForEvaluation } from '@/lib/api/evals';
+import { useSettings } from '@/hooks';
 
 interface SearchResultsProps {
   data: SearchResponse | null;
@@ -17,6 +20,11 @@ interface SearchResultsProps {
 
 export function SearchResults({ data, isLoading }: SearchResultsProps) {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
+  const { data: settings } = useSettings();
+
+  // Get show_scores setting (default to false if not loaded)
+  const defaultShowScores = settings?.show_scores ?? false;
+
   if (isLoading) {
     return <SearchResultsSkeleton />;
   }
@@ -118,7 +126,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
             {data.low_confidence_results.map((result, index) => (
               <div key={result.id} className="relative">
                 <div className="absolute -left-2 top-0 bottom-0 w-1 bg-amber-400 dark:bg-amber-600 rounded-full" />
-                <SearchResultCard result={result} rank={index + 1} />
+                <SearchResultCard result={result} rank={index + 1} defaultShowScores={defaultShowScores} />
               </div>
             ))}
           </div>
@@ -163,6 +171,40 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
             <Clock className="h-3 w-3" />
             {data.latency_ms}ms
           </span>
+          {/* Evaluate button - captures search data for LLM-as-Judge evaluation */}
+          <RunEvaluationDialog
+            initialQuery={data.query}
+            initialAnswer={data.answer || ''}
+            initialChunks={data.results.map((r): ChunkForEvaluation => ({
+              content: r.content,
+              source: r.document_name,
+              metadata: {
+                document_id: r.document_id,
+                collection_id: r.collection_id,
+                page: r.page,
+                section: r.section,
+                score: r.scores.final_score,
+              },
+            }))}
+            searchAlpha={data.search_alpha}
+            searchPreset={data.retrieval_method}
+            searchUseReranker={data.search_use_reranker}
+            rerankerProvider={data.reranker_provider}
+            chunkSize={data.chunk_size}
+            chunkOverlap={data.chunk_overlap}
+            embeddingModel={data.embedding_model}
+            answerModel={data.answer_model}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2"
+              >
+                <FlaskConical className="h-3 w-3" />
+                Evaluate
+              </Button>
+            }
+          />
         </div>
       </div>
 
@@ -205,7 +247,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
       {/* High-confidence results list */}
       <div className="space-y-3">
         {data.results.map((result, index) => (
-          <SearchResultCard key={result.id} result={result} rank={index + 1} />
+          <SearchResultCard key={result.id} result={result} rank={index + 1} defaultShowScores={defaultShowScores} />
         ))}
       </div>
 
@@ -228,6 +270,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
               <SearchResultCard
                 result={result}
                 rank={data.results.length + index + 1}
+                defaultShowScores={defaultShowScores}
               />
             </div>
           ))}

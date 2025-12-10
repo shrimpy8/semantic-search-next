@@ -11,8 +11,15 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import CollectionRepository, DocumentRepository, SettingsRepository, get_db
-from app.db.models import Collection, Document
+from app.db import (
+    CollectionRepository,
+    DocumentRepository,
+    EvaluationResultRepository,
+    GroundTruthRepository,
+    SettingsRepository,
+    get_db,
+)
+from app.db.models import Collection, Document, GroundTruth
 
 
 async def get_collection_repo(
@@ -99,3 +106,45 @@ async def check_collection_name_unique(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Collection with name '{name}' already exists",
         )
+
+
+# ============================================================================
+# Evaluation Dependencies
+# ============================================================================
+
+
+async def get_ground_truth_repo(
+    session: AsyncSession = Depends(get_db),
+) -> AsyncGenerator[GroundTruthRepository, None]:
+    """Dependency that provides a GroundTruthRepository."""
+    yield GroundTruthRepository(session)
+
+
+async def get_evaluation_result_repo(
+    session: AsyncSession = Depends(get_db),
+) -> AsyncGenerator[EvaluationResultRepository, None]:
+    """Dependency that provides an EvaluationResultRepository."""
+    yield EvaluationResultRepository(session)
+
+
+# Type aliases for cleaner endpoint signatures
+GroundTruthRepo = Annotated[GroundTruthRepository, Depends(get_ground_truth_repo)]
+EvaluationResultRepo = Annotated[EvaluationResultRepository, Depends(get_evaluation_result_repo)]
+
+
+async def require_ground_truth(
+    ground_truth_id: UUID,
+    repo: GroundTruthRepository,
+) -> GroundTruth:
+    """
+    Get a ground truth by ID or raise 404.
+
+    DRY helper to avoid repeating this check in every endpoint.
+    """
+    ground_truth = await repo.get_by_id(ground_truth_id)
+    if not ground_truth:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ground truth '{ground_truth_id}' not found",
+        )
+    return ground_truth

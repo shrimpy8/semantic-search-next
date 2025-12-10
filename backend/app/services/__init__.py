@@ -5,15 +5,15 @@ Provides initialized instances of core components as FastAPI dependencies.
 """
 
 from app.services.retrieval import (
-    DocumentProcessorService,
+    HybridSearchService,
     VectorStoreService,
-    get_document_processor,
+    get_hybrid_search_service,
     get_vector_store,
 )
 
 __all__ = [
     "get_vector_store",
-    "get_document_processor",
+    "get_hybrid_search_service",
     "VectorStoreService",
-    "DocumentProcessorService",
+    "HybridSearchService",
 ]

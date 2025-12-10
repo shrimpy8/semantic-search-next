@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSettings, useUpdateSettings, useResetSettings } from '@/hooks';
-import { Settings as SettingsIcon, RefreshCw, Save, AlertCircle, Info, ExternalLink, Sparkles, Layers, CheckCircle2, Clock, Zap } from 'lucide-react';
+import { useSettings, useUpdateSettings, useResetSettings, useLlmModels, useSetupValidation } from '@/hooks';
+import { Settings as SettingsIcon, RefreshCw, Save, AlertCircle, Info, ExternalLink, Sparkles, Layers, CheckCircle2, Clock, Zap, FlaskConical, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -61,8 +61,12 @@ const EMBEDDING_PROVIDERS = {
     downloadUrl: 'https://ollama.com/download',
     requiresApiKey: false,
     models: [
+      { value: 'ollama:nomic-embed-text:v1.5', label: 'nomic-embed-text:v1.5', dims: 768, description: 'Latest, fast' },
       { value: 'ollama:nomic-embed-text', label: 'nomic-embed-text', dims: 768, description: 'Fast, good quality' },
+      { value: 'ollama:mxbai-embed-large:335m', label: 'mxbai-embed-large:335m', dims: 1024, description: 'High quality' },
       { value: 'ollama:mxbai-embed-large', label: 'mxbai-embed-large', dims: 1024, description: 'High quality' },
+      { value: 'ollama:embeddinggemma', label: 'embeddinggemma', dims: 768, description: 'Google Gemma' },
+      { value: 'ollama:jina/jina-embeddings-v2-base-en', label: 'jina-embeddings-v2', dims: 768, description: 'Jina via Ollama' },
       { value: 'ollama:snowflake-arctic-embed', label: 'snowflake-arctic-embed', dims: 1024, description: 'Strong retrieval' },
     ],
   },
@@ -119,6 +123,8 @@ export default function SettingsPage() {
   const { data: settings, isLoading, isError, error, refetch } = useSettings();
   const updateSettings = useUpdateSettings();
   const resetSettings = useResetSettings();
+  const { data: llmModels } = useLlmModels();
+  const { data: validation } = useSetupValidation();
 
   // Form state
   const [formData, setFormData] = useState<SettingsUpdate>({});
@@ -141,6 +147,10 @@ export default function SettingsPage() {
         min_score_threshold: settings.min_score_threshold,
         default_generate_answer: settings.default_generate_answer,
         context_window_size: settings.context_window_size,
+        eval_judge_provider: settings.eval_judge_provider,
+        eval_judge_model: settings.eval_judge_model,
+        answer_provider: settings.answer_provider,
+        answer_model: settings.answer_model,
       });
       setHasChanges(false);
     }
@@ -231,6 +241,41 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Validation Status */}
+      {validation && !validation.ready && (
+        <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <p className="font-medium text-destructive">{validation.summary}</p>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                {validation.checks
+                  .filter((c) => c.status === 'error' || c.status === 'warning')
+                  .map((check, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      {check.status === 'error' ? (
+                        <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                      )}
+                      <span><strong>{check.name}:</strong> {check.message}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {validation && validation.ready && validation.checks.every(c => c.status === 'ok') && (
+        <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-green-500" />
+            <p className="text-sm text-green-600 dark:text-green-400">{validation.summary}</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Search Defaults Section */}
@@ -335,20 +380,6 @@ export default function SettingsPage() {
                 id="show_scores"
                 checked={formData.show_scores ?? true}
                 onCheckedChange={(checked) => updateField('show_scores', checked)}
-              />
-            </div>
-
-            {/* Results Per Page */}
-            <div className="space-y-2">
-              <Label htmlFor="results_per_page">Results Per Page</Label>
-              <Input
-                id="results_per_page"
-                type="number"
-                min={5}
-                max={50}
-                value={formData.results_per_page ?? 10}
-                onChange={(e) => updateField('results_per_page', parseInt(e.target.value) || 10)}
-                className="rounded-xl"
               />
             </div>
 
@@ -522,6 +553,106 @@ export default function SettingsPage() {
                   {(formData.context_window_size ?? 1) === 2 && 'Each result shows 2 chunks before and 2 after — good for understanding argument flow.'}
                   {(formData.context_window_size ?? 1) === 3 && 'Maximum context: 3 chunks before and 3 after. Best for dense, technical documents.'}
                 </p>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-muted-foreground/10" />
+
+            {/* Answer LLM Provider Selection */}
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-base">Answer Generation LLM</Label>
+                <p className="text-sm text-muted-foreground">
+                  Select the LLM provider and model for generating AI answers from search results.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Answer Provider */}
+                <div className="space-y-2">
+                  <Label htmlFor="answer_provider">Provider</Label>
+                  <Select
+                    value={formData.answer_provider}
+                    onValueChange={(value) => updateField('answer_provider', value as Settings['answer_provider'])}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">
+                        <div className="flex flex-col">
+                          <span>OpenAI</span>
+                          <span className="text-xs text-muted-foreground">Cloud API, requires key</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="anthropic">
+                        <div className="flex flex-col">
+                          <span>Anthropic</span>
+                          <span className="text-xs text-muted-foreground">Claude models, requires key</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ollama">
+                        <div className="flex flex-col">
+                          <span>Ollama (Local)</span>
+                          <span className="text-xs text-muted-foreground">Run locally, no API key</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Answer Model */}
+                <div className="space-y-2">
+                  <Label htmlFor="answer_model">Model</Label>
+                  <Select
+                    value={formData.answer_model}
+                    onValueChange={(value) => updateField('answer_model', value)}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formData.answer_provider && llmModels?.answer_providers[formData.answer_provider]?.models.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name} ({model.description})
+                        </SelectItem>
+                      ))}
+                      {/* Fallback if API not loaded */}
+                      {!llmModels && formData.answer_provider === 'openai' && (
+                        <>
+                          <SelectItem value="gpt-4o-mini">gpt-4o-mini (fast, cheap)</SelectItem>
+                          <SelectItem value="gpt-4o">gpt-4o (best quality)</SelectItem>
+                        </>
+                      )}
+                      {!llmModels && formData.answer_provider === 'anthropic' && (
+                        <>
+                          <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4 (recommended)</SelectItem>
+                          <SelectItem value="claude-opus-4-20250514">Claude Opus 4 (best)</SelectItem>
+                        </>
+                      )}
+                      {!llmModels && formData.answer_provider === 'ollama' && (
+                        <>
+                          <SelectItem value="llama3.2">Llama 3.2 (recommended)</SelectItem>
+                          <SelectItem value="mistral">Mistral</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Provider-specific info */}
+              <div className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">
+                {formData.answer_provider === 'openai' && (
+                  <p>Requires <code className="px-1 py-0.5 rounded bg-muted font-mono">OPENAI_API_KEY</code> environment variable.</p>
+                )}
+                {formData.answer_provider === 'anthropic' && (
+                  <p>Requires <code className="px-1 py-0.5 rounded bg-muted font-mono">ANTHROPIC_API_KEY</code> environment variable.</p>
+                )}
+                {formData.answer_provider === 'ollama' && (
+                  <p>Runs locally on your machine. Make sure Ollama is installed and the model is pulled: <code className="px-1 py-0.5 rounded bg-muted font-mono">ollama pull {formData.answer_model || 'mistral'}</code></p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -725,6 +856,81 @@ export default function SettingsPage() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 Auto selects the best available reranker based on configured API keys.
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-muted-foreground/10 pt-2" />
+
+            {/* Evaluation LLM */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-primary" />
+                <Label>Evaluation LLM</Label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Eval Provider */}
+                <div className="space-y-2">
+                  <Label htmlFor="eval_judge_provider" className="text-xs text-muted-foreground">Provider</Label>
+                  <Select
+                    value={formData.eval_judge_provider}
+                    onValueChange={(value) => updateField('eval_judge_provider', value as Settings['eval_judge_provider'])}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select evaluation LLM" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="anthropic">Anthropic</SelectItem>
+                      <SelectItem value="ollama">Ollama (Local)</SelectItem>
+                      <SelectItem value="disabled">Disabled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Eval Model */}
+                {formData.eval_judge_provider !== 'disabled' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="eval_judge_model" className="text-xs text-muted-foreground">Model</Label>
+                    <Select
+                      value={formData.eval_judge_model}
+                      onValueChange={(value) => updateField('eval_judge_model', value)}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Select model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {formData.eval_judge_provider && llmModels?.eval_providers[formData.eval_judge_provider]?.models.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name} ({model.description})
+                          </SelectItem>
+                        ))}
+                        {/* Fallback if API not loaded */}
+                        {!llmModels && formData.eval_judge_provider === 'openai' && (
+                          <>
+                            <SelectItem value="gpt-4o-mini">gpt-4o-mini (recommended)</SelectItem>
+                            <SelectItem value="gpt-4o">gpt-4o (best)</SelectItem>
+                          </>
+                        )}
+                        {!llmModels && formData.eval_judge_provider === 'anthropic' && (
+                          <>
+                            <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4 (recommended)</SelectItem>
+                            <SelectItem value="claude-opus-4-20250514">Claude Opus 4</SelectItem>
+                          </>
+                        )}
+                        {!llmModels && formData.eval_judge_provider === 'ollama' && (
+                          <>
+                            <SelectItem value="llama3.2">Llama 3.2 (recommended)</SelectItem>
+                            <SelectItem value="llama3.1">Llama 3.1</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                LLM used as a judge for RAG quality evaluations. Cloud providers require API keys. Ollama runs locally.
               </p>
             </div>
           </CardContent>

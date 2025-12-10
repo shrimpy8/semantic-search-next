@@ -141,18 +141,21 @@ async def search(
     # Determine preset
     preset = request.preset or db_settings.default_preset
 
+    # Get base top_k from request or settings
+    base_top_k = request.top_k if request.top_k is not None else db_settings.default_top_k
+
     # Apply preset-specific configurations OR use custom values
     if preset in PRESET_CONFIGS and request.alpha is None:
         # Using a preset - apply preset-specific parameters
         preset_config = PRESET_CONFIGS[preset]
         alpha = preset_config["alpha"]
         use_reranker = preset_config["use_reranker"]
-        top_k = int(request.top_k * preset_config["top_k_multiplier"])
+        top_k = int(base_top_k * preset_config["top_k_multiplier"])
     else:
         # Custom mode or explicit alpha provided - use request/DB values
         alpha = request.alpha if request.alpha is not None else db_settings.default_alpha
         use_reranker = request.use_reranker if request.use_reranker is not None else db_settings.default_use_reranker
-        top_k = request.top_k
+        top_k = base_top_k
 
     # Validate collection if specified (DRY helper)
     collection_name = None
@@ -177,6 +180,7 @@ async def search(
             method=preset,
             alpha=alpha,
             use_reranker=use_reranker,
+            reranker_provider=db_settings.reranker_provider,
         )
     except Exception as e:
         logger.error(f"Search failed: {e}", exc_info=True)
@@ -294,24 +298,52 @@ async def search(
     # Calculate latency
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
-    # Log search query for analytics
+    # Prepare retrieved chunks data for evaluation storage
+    # Store all results (both high and low confidence) for comprehensive evaluation
+    all_results = high_confidence_results + low_confidence_results
+    retrieved_chunks_data = [
+        {
+            "chunk_id": r.id,
+            "document_id": str(r.document_id),
+            "document_name": r.document_name,
+            "collection_id": str(r.collection_id),
+            "content": r.content,
+            "page": r.page,
+            "section": r.section,
+            "scores": {
+                "semantic_score": r.scores.semantic_score,
+                "bm25_score": r.scores.bm25_score,
+                "rerank_score": r.scores.rerank_score,
+                "final_score": r.scores.final_score,
+                "relevance_percent": r.scores.relevance_percent,
+            },
+            "chunk_index": r.chunk_index,
+            "total_chunks": r.total_chunks,
+        }
+        for r in all_results
+    ]
+
+    # Log search query for analytics with evaluation data
     search_log = SearchQuery(
         query_text=request.query,
         collection_id=request.collection_id,
         retrieval_method=preset,
         results_count=len(high_confidence_results),
         latency_ms=latency_ms,
+        # Evaluation data capture
+        retrieved_chunks=retrieved_chunks_data,
     )
     db.add(search_log)
 
     # Generate RAG answer if requested and we have results
     answer = None
     answer_verification = None
+    answer_model_used = None
     if request.generate_answer and high_confidence_results:
         try:
-            # Get OpenAI API key from settings
-            app_settings = get_settings()
-            openai_api_key = app_settings.openai_api_key
+            # Get answer provider/model from DB settings
+            answer_provider = db_settings.answer_provider
+            answer_model_used = db_settings.answer_model
 
             # Build context from top results
             source_names = [r.document_name for r in high_confidence_results[:3]]
@@ -320,21 +352,23 @@ async def search(
                 for i, r in enumerate(high_confidence_results[:3])  # Use top 3 results for context
             ])
 
-            # Initialize QA chain and generate answer
+            # Initialize QA chain with provider from settings
             qa_chain = QAChain(
-                model_name="gpt-4o-mini",
+                provider=answer_provider,
+                model_name=answer_model_used,
                 temperature=0.0,
-                api_key=openai_api_key,
             )
             answer = qa_chain.generate_answer(
                 question=request.query,
                 context=context_docs,
             )
-            logger.info(f"RAG answer generated: {len(answer)} characters")
+            logger.info(f"RAG answer generated: {len(answer)} characters using {answer_provider}/{answer_model_used}")
 
             # Verify the answer against source documents
+            # Note: verifier still uses OpenAI for now (can be extended later)
             try:
-                verifier = AnswerVerifier(model_name="gpt-4o-mini", temperature=0.0, api_key=openai_api_key)
+                app_settings = get_settings()
+                verifier = AnswerVerifier(model_name="gpt-4o-mini", temperature=0.0, api_key=app_settings.openai_api_key)
                 verification_result = verifier.verify(
                     answer=answer,
                     context=context_docs,
@@ -373,6 +407,22 @@ async def search(
     # Calculate final latency (includes RAG if generated)
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
+    # Update search log with generated answer and sources for evaluation
+    if answer:
+        search_log.generated_answer = answer
+        search_log.answer_sources = {
+            "sources": [r.document_name for r in high_confidence_results[:3]],
+            "verification": {
+                "confidence": answer_verification.confidence if answer_verification else None,
+                "verified_claims": answer_verification.verified_claims if answer_verification else None,
+                "total_claims": answer_verification.total_claims if answer_verification else None,
+                "coverage_percent": answer_verification.coverage_percent if answer_verification else None,
+            } if answer_verification else None,
+        }
+
+    # Update latency now that we know the full duration
+    search_log.latency_ms = latency_ms
+
     logger.info(
         f"Search completed: query='{request.query[:50]}' "
         f"results={len(high_confidence_results)} low_confidence={len(low_confidence_results)} "
@@ -391,4 +441,12 @@ async def search(
         sources=[r.document_name for r in high_confidence_results[:3]],
         latency_ms=latency_ms,
         retrieval_method=preset,
+        # Search configuration for evaluation capture
+        search_alpha=alpha,
+        search_use_reranker=use_reranker,
+        reranker_provider=db_settings.reranker_provider,
+        chunk_size=db_settings.chunk_size,
+        chunk_overlap=db_settings.chunk_overlap,
+        embedding_model=db_settings.embedding_model,
+        answer_model=answer_model_used,
     )

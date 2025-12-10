@@ -1,0 +1,131 @@
+# Evaluation Prompts for LLM-as-Judge
+# These prompts are used to evaluate retrieval and answer quality
+
+retrieval_evaluation:
+  system: |
+    You are an expert evaluator assessing the quality of retrieved text chunks for a search query.
+    Your task is to evaluate how well the retrieved chunks support answering the query.
+
+    Provide scores from 0.0 to 1.0 for each metric, where:
+    - 0.0 = Completely fails the criterion
+    - 0.5 = Partially meets the criterion
+    - 1.0 = Fully meets the criterion
+
+    You MUST respond with valid JSON only, no additional text.
+
+  user: |
+    Evaluate the following retrieved chunks for the given query.
+
+    **Query:** {query}
+
+    **Retrieved Chunks:**
+    {chunks}
+
+    Evaluate these three metrics:
+
+    1. **Context Relevance** (0.0-1.0): Are the retrieved chunks relevant to the query?
+       Consider whether the chunks contain information that could help answer the query.
+
+    2. **Context Precision** (0.0-1.0): Are the most relevant chunks ranked higher?
+       Check if the ordering makes sense - better chunks should come first.
+
+    3. **Context Coverage** (0.0-1.0): Do the chunks together cover all aspects of the query?
+       Consider whether any important aspects of the query are missing from the chunks.
+
+    Respond with this exact JSON format:
+    {{
+      "context_relevance": <float 0.0-1.0>,
+      "context_precision": <float 0.0-1.0>,
+      "context_coverage": <float 0.0-1.0>,
+      "reasoning": "<brief explanation of your scores>"
+    }}
+
+answer_evaluation:
+  system: |
+    You are an expert evaluator assessing the quality of AI-generated answers.
+    Your task is to evaluate how well the answer addresses the query using the provided context.
+
+    Provide scores from 0.0 to 1.0 for each metric, where:
+    - 0.0 = Completely fails the criterion
+    - 0.5 = Partially meets the criterion
+    - 1.0 = Fully meets the criterion
+
+    You MUST respond with valid JSON only, no additional text.
+
+  user: |
+    Evaluate the following answer for the given query and context.
+
+    **Query:** {query}
+
+    **Context (used to generate the answer):**
+    {context}
+
+    **Generated Answer:**
+    {answer}
+
+    Evaluate these three metrics:
+
+    1. **Faithfulness** (0.0-1.0): Is the answer grounded in the provided context?
+       Check for hallucinations - information in the answer should be supported by the context.
+       - 1.0 = All claims are supported by context
+       - 0.5 = Some claims are unsupported
+       - 0.0 = Mostly hallucinated or contradicts context
+
+    2. **Answer Relevance** (0.0-1.0): Does the answer directly address the query?
+       - 1.0 = Directly and completely answers the question
+       - 0.5 = Partially addresses the question
+       - 0.0 = Doesn't answer the question at all
+
+    3. **Completeness** (0.0-1.0): Does the answer cover all aspects of the query?
+       - 1.0 = All aspects of the query are addressed
+       - 0.5 = Some aspects are missing
+       - 0.0 = Most aspects are missing
+
+    Respond with this exact JSON format:
+    {{
+      "faithfulness": <float 0.0-1.0>,
+      "answer_relevance": <float 0.0-1.0>,
+      "completeness": <float 0.0-1.0>,
+      "reasoning": "<brief explanation of your scores>"
+    }}
+
+ground_truth_comparison:
+  system: |
+    You are an expert evaluator comparing a generated answer to a ground truth (expected) answer.
+    Your task is to assess how similar the generated answer is to the expected answer in terms of correctness and completeness.
+
+    Provide a score from 0.0 to 1.0, where:
+    - 0.0 = Completely different or contradictory
+    - 0.5 = Partially similar with some correct information
+    - 1.0 = Semantically equivalent (doesn't need to be word-for-word)
+
+    You MUST respond with valid JSON only, no additional text.
+
+  user: |
+    Compare the generated answer to the expected (ground truth) answer.
+
+    **Query:** {query}
+
+    **Expected Answer:**
+    {expected_answer}
+
+    **Generated Answer:**
+    {generated_answer}
+
+    Evaluate the **Ground Truth Similarity** (0.0-1.0):
+    - Are the key facts and conclusions the same?
+    - Does the generated answer contain the essential information from the expected answer?
+    - Minor wording differences are acceptable if the meaning is preserved.
+
+    Respond with this exact JSON format:
+    {{
+      "ground_truth_similarity": <float 0.0-1.0>,
+      "reasoning": "<brief explanation comparing the two answers>"
+    }}
+
+# Score interpretation guide (for reference)
+score_interpretation:
+  excellent: "> 0.8 - Production ready quality"
+  good: "0.6-0.8 - Good quality, minor improvements possible"
+  moderate: "0.4-0.6 - Acceptable but needs review"
+  poor: "< 0.4 - Significant issues, needs attention"

@@ -1,12 +1,21 @@
 """
 Retrieval Service Module.
 
-Provides initialized instances of VectorStoreManager, DocumentProcessor,
-and HybridSearchService as FastAPI dependencies.
-Uses singleton pattern for efficient resource management.
+Provides initialized instances of VectorStoreManager and HybridSearchService
+as FastAPI dependencies. Uses singleton pattern for efficient resource management.
+
+Configuration Hierarchy:
+-----------------------
+- Infrastructure settings (ChromaDB host/port, API keys): from config.py (.env)
+- User-configurable settings (embedding model, chunk size, reranker): from DB Settings
+
+Note: The embedding model is loaded from DB settings at startup. Changing the embedding
+model in settings requires a server restart since existing documents are already embedded
+with the original model. This is by design - embedding model changes require re-indexing.
 """
 
 import logging
+import os
 from functools import lru_cache
 from typing import Annotated
 
@@ -25,8 +34,53 @@ logger = logging.getLogger(__name__)
 
 # Singleton instances
 _vector_store_instance = None
-_document_processor_instance = None
 _hybrid_search_service_instance = None
+
+# Default embedding model (can be overridden by DB settings at startup)
+# This is read once at startup from DB Settings and cached
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
+
+
+def _get_initial_embedding_model() -> str:
+    """
+    Get the embedding model from DB Settings at startup.
+
+    This is called once during VectorStore initialization to determine
+    which embedding model to use. Since changing embedding models requires
+    re-indexing all documents, this is intentionally not dynamic.
+
+    Falls back to DEFAULT_EMBEDDING_MODEL if DB is not available.
+    """
+    try:
+        # Try to get from environment variable override first
+        env_model = os.getenv("EMBEDDING_MODEL")
+        if env_model:
+            logger.info(f"Using embedding model from EMBEDDING_MODEL env var: {env_model}")
+            return env_model
+
+        # Try to get from DB settings synchronously for startup
+        # This is a bit hacky but necessary since we need to initialize
+        # before the async context is available
+        from sqlalchemy import create_engine, select
+        from sqlalchemy.orm import Session
+
+        settings = get_settings()
+        engine = create_engine(settings.database_url_sync)
+
+        with Session(engine) as session:
+            from app.db.models import Settings as DbSettings
+            stmt = select(DbSettings).where(DbSettings.key == "global")
+            db_settings = session.execute(stmt).scalar_one_or_none()
+
+            if db_settings:
+                logger.info(f"Using embedding model from DB settings: {db_settings.embedding_model}")
+                return db_settings.embedding_model
+
+    except Exception as e:
+        logger.warning(f"Could not load embedding model from DB settings: {e}")
+
+    logger.info(f"Using default embedding model: {DEFAULT_EMBEDDING_MODEL}")
+    return DEFAULT_EMBEDDING_MODEL
 
 
 def _create_vector_store(settings: Settings):
@@ -34,42 +88,26 @@ def _create_vector_store(settings: Settings):
     Create VectorStoreManager instance.
 
     Uses ChromaDB in Docker mode connecting to the configured host/port.
+    The embedding model is loaded from DB settings at startup.
     """
     from app.core.vector_store import VectorStoreManager
+
+    embedding_model = _get_initial_embedding_model()
 
     logger.info(
         f"Initializing VectorStoreManager: "
         f"host={settings.chroma_host}, port={settings.chroma_port}, "
-        f"embedding={settings.embedding_model}"
+        f"embedding={embedding_model}"
     )
 
     return VectorStoreManager(
-        embedding_model_name=settings.embedding_model,
+        embedding_model_name=embedding_model,
         collection_name="semantic_search_docs",
         use_docker=True,
         chroma_host=settings.chroma_host,
         chroma_port=settings.chroma_port,
         openai_api_key=settings.openai_api_key,
-    )
-
-
-def _create_document_processor(settings: Settings):
-    """
-    Create DocumentProcessor instance.
-
-    Uses configured chunk size and overlap settings.
-    """
-    from app.core.document_processor import DocumentProcessor
-
-    logger.info(
-        f"Initializing DocumentProcessor: "
-        f"chunk_size={settings.chunk_size}, overlap={settings.chunk_overlap}"
-    )
-
-    return DocumentProcessor(
-        chunk_size=settings.chunk_size,
-        chunk_overlap=settings.chunk_overlap,
-        add_start_index=True,
+        ollama_base_url=settings.ollama_base_url,
     )
 
 
@@ -95,27 +133,8 @@ def get_vector_store():
     return _vector_store_instance
 
 
-@lru_cache
-def get_document_processor():
-    """
-    Get or create singleton DocumentProcessor instance.
-
-    Returns:
-        DocumentProcessor instance for chunking documents
-    """
-    global _document_processor_instance
-
-    if _document_processor_instance is None:
-        settings = get_settings()
-        _document_processor_instance = _create_document_processor(settings)
-        logger.info("DocumentProcessor initialized successfully")
-
-    return _document_processor_instance
-
-
 # Type aliases for FastAPI dependencies
 VectorStoreService = Annotated[object, Depends(get_vector_store)]
-DocumentProcessorService = Annotated[object, Depends(get_document_processor)]
 
 
 class HybridSearchService:
@@ -123,34 +142,53 @@ class HybridSearchService:
     Service for hybrid search with BM25 + semantic search and reranking.
 
     Manages per-collection BM25 indices and provides unified search interface.
+
+    Note: Reranker provider is now configured per-request based on DB settings,
+    passed from the API endpoint rather than stored in the service.
     """
 
     def __init__(self, vector_store, settings: Settings):
         self.vector_store = vector_store
-        self.settings = settings
+        self.settings = settings  # Infrastructure settings (API keys, URLs)
         self._bm25_indices: dict[str, BM25Retriever] = {}
-        self._reranker: BaseReranker | None = None
-        self._reranker_initialized = False
+        self._rerankers: dict[str, BaseReranker] = {}  # Cache rerankers by provider
 
         logger.info("HybridSearchService initialized")
 
-    def _get_reranker(self) -> BaseReranker | None:
-        """Lazily initialize reranker."""
-        if not self._reranker_initialized:
-            self._reranker_initialized = True
-            if self.settings.use_reranking:
-                if self.settings.reranker_provider == "auto":
-                    self._reranker = RerankerFactory.get_available_reranker()
-                else:
-                    try:
-                        self._reranker = RerankerFactory.create(self.settings.reranker_provider)
-                        if not self._reranker.is_available():
-                            logger.warning(f"Reranker {self.settings.reranker_provider} not available")
-                            self._reranker = None
-                    except Exception as e:
-                        logger.error(f"Failed to create reranker: {e}")
-                        self._reranker = None
-        return self._reranker
+    def _get_reranker(self, provider: str = "auto") -> BaseReranker | None:
+        """
+        Get or create a reranker instance for the given provider.
+
+        Args:
+            provider: Reranker provider name ("auto", "jina", "cohere")
+
+        Returns:
+            Reranker instance or None if not available
+        """
+        # Check cache first
+        if provider in self._rerankers:
+            return self._rerankers[provider]
+
+        # Create reranker
+        try:
+            if provider == "auto":
+                reranker = RerankerFactory.get_available_reranker()
+            else:
+                reranker = RerankerFactory.create(provider)
+                if not reranker.is_available():
+                    logger.warning(f"Reranker {provider} not available")
+                    reranker = None
+
+            # Cache for future use
+            if reranker:
+                self._rerankers[provider] = reranker
+                logger.info(f"Created reranker: {provider} -> {type(reranker).__name__}")
+
+            return reranker
+
+        except Exception as e:
+            logger.error(f"Failed to create reranker {provider}: {e}")
+            return None
 
     def _get_bm25_index(self, collection_id: str | None = None) -> BM25Retriever:
         """Get or create BM25 index for a collection or all collections."""
@@ -198,6 +236,7 @@ class HybridSearchService:
         method: str = "hybrid",
         alpha: float = 0.5,
         use_reranker: bool = True,
+        reranker_provider: str = "auto",
     ) -> list[HybridResult]:
         """
         Execute hybrid search with optional reranking.
@@ -210,6 +249,7 @@ class HybridSearchService:
             method: Retrieval method ("semantic", "bm25", "hybrid")
             alpha: Weight for semantic search in hybrid mode (0-1)
             use_reranker: Whether to apply reranking
+            reranker_provider: Reranker provider ("auto", "jina", "cohere")
 
         Returns:
             List of HybridResult with scores
@@ -261,7 +301,7 @@ class HybridSearchService:
                 logger.info(f"Passing {len(bm25_docs)} docs to HybridRetriever")
 
         # Create hybrid retriever
-        reranker = self._get_reranker() if use_reranker else None
+        reranker = self._get_reranker(reranker_provider) if use_reranker else None
 
         hybrid_retriever = HybridRetriever(
             semantic_retriever=semantic_retriever,
@@ -282,13 +322,13 @@ class HybridSearchService:
 
     def get_stats(self) -> dict:
         """Get service statistics."""
-        reranker = self._get_reranker()
+        # Get any cached reranker to show availability
+        auto_reranker = self._get_reranker("auto")
         return {
             "bm25_cached_collections": len(self._bm25_indices),
-            "reranker_available": reranker.is_available() if reranker else False,
-            "reranker_type": type(reranker).__name__ if reranker else None,
-            "use_reranking": self.settings.use_reranking,
-            "default_method": self.settings.default_retrieval_method,
+            "reranker_available": auto_reranker.is_available() if auto_reranker else False,
+            "reranker_type": type(auto_reranker).__name__ if auto_reranker else None,
+            "cached_rerankers": list(self._rerankers.keys()),
         }
 
 
@@ -318,10 +358,8 @@ def reset_services():
     """
     Reset singleton instances (useful for testing).
     """
-    global _vector_store_instance, _document_processor_instance, _hybrid_search_service_instance
+    global _vector_store_instance, _hybrid_search_service_instance
     _vector_store_instance = None
-    _document_processor_instance = None
     _hybrid_search_service_instance = None
     get_vector_store.cache_clear()
-    get_document_processor.cache_clear()
     logger.info("Services reset")

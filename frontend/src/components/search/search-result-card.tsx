@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 interface SearchResultCardProps {
   result: SearchResult;
   rank: number;
+  defaultShowScores?: boolean;
 }
 
 function ScoreIndicator({ score, label }: { score: number | null | undefined; label: string }) {
@@ -72,10 +73,10 @@ function ChunkPositionBadge({ index, total }: { index: number; total: number }) 
   );
 }
 
-export function SearchResultCard({ result, rank }: SearchResultCardProps) {
+export function SearchResultCard({ result, rank, defaultShowScores = false }: SearchResultCardProps) {
   const [showFullContent, setShowFullContent] = useState(false);
   const [showContext, setShowContext] = useState(false);
-  const [showScores, setShowScores] = useState(false);
+  const [showScores, setShowScores] = useState(defaultShowScores);
 
   const scores = result.scores;
   const relevancePercent = scores.relevance_percent;

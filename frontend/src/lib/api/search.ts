@@ -68,6 +68,14 @@ export interface SearchResponse {
   sources?: string[];
   latency_ms: number;
   retrieval_method: string;
+  // Search configuration (for evaluation capture)
+  search_alpha?: number | null;
+  search_use_reranker?: boolean | null;
+  reranker_provider?: string | null;
+  chunk_size?: number | null;
+  chunk_overlap?: number | null;
+  embedding_model?: string | null;
+  answer_model?: string | null;
 }
 
 export const searchApi = {

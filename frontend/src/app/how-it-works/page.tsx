@@ -22,6 +22,12 @@ import {
   Database,
   Cpu,
   BarChart3,
+  FileText,
+  Scissors,
+  Binary,
+  Trophy,
+  MessageSquare,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +39,73 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+// Pipeline steps data - single source of truth
+const PIPELINE_STEPS = [
+  {
+    step: 1,
+    title: 'Document',
+    icon: FileText,
+    description: 'Upload & organize into collections',
+    providers: { cloud: [], local: ['Built-in'] },
+    params: [],
+    color: 'blue',
+  },
+  {
+    step: 2,
+    title: 'Chunk',
+    icon: Scissors,
+    description: 'Split into searchable pieces',
+    providers: { cloud: [], local: ['Built-in'] },
+    params: ['chunk_size (1000)', 'chunk_overlap (200)'],
+    color: 'slate',
+  },
+  {
+    step: 3,
+    title: 'Embed',
+    icon: Binary,
+    description: 'Convert to vector embeddings',
+    providers: { cloud: ['OpenAI', 'Voyage', 'Cohere', 'Jina'], local: ['Ollama'] },
+    params: ['embedding_model'],
+    color: 'purple',
+  },
+  {
+    step: 4,
+    title: 'Search',
+    icon: Shuffle,
+    description: 'Hybrid BM25 + Semantic',
+    providers: { cloud: [], local: ['BM25 + ChromaDB'] },
+    params: ['alpha (0-1)', 'top_k', 'preset'],
+    color: 'green',
+  },
+  {
+    step: 5,
+    title: 'Rerank',
+    icon: Trophy,
+    description: 'Cross-encoder refinement',
+    providers: { cloud: ['Cohere'], local: ['Jina'] },
+    params: ['reranker_provider'],
+    color: 'amber',
+  },
+  {
+    step: 6,
+    title: 'Answer',
+    icon: MessageSquare,
+    description: 'RAG-powered response',
+    providers: { cloud: ['OpenAI', 'Anthropic'], local: ['Ollama'] },
+    params: ['answer_provider', 'answer_model'],
+    color: 'pink',
+  },
+  {
+    step: 7,
+    title: 'Eval',
+    icon: ClipboardCheck,
+    description: 'LLM-as-Judge quality',
+    providers: { cloud: ['OpenAI', 'Anthropic'], local: ['Ollama'] },
+    params: ['eval_judge_provider', 'eval_judge_model'],
+    color: 'indigo',
+  },
+];
 
 export default function HowItWorksPage() {
   return (
@@ -59,10 +132,13 @@ export default function HowItWorksPage() {
         </h2>
         <div className="grid sm:grid-cols-2 gap-2">
           {[
-            { href: '#overview', label: 'High-Level Overview', icon: Layers },
-            { href: '#search-quality', label: 'Search Quality Progression', icon: TrendingUp },
-            { href: '#concepts', label: 'Key Concepts Explained', icon: Brain },
-            { href: '#settings', label: 'Settings Demystified', icon: Settings },
+            { href: '#pipeline', label: 'RAG Pipeline', icon: Layers },
+            { href: '#retrieval-methods', label: 'Retrieval Methods', icon: Shuffle },
+            { href: '#precision-recall', label: 'Precision vs Recall', icon: Target },
+            { href: '#overview', label: 'Traditional vs Semantic', icon: Brain },
+            { href: '#search-quality', label: 'Search Quality Layers', icon: TrendingUp },
+            { href: '#concepts', label: 'Key Concepts', icon: BookOpen },
+            { href: '#settings', label: 'Settings Guide', icon: Settings },
           ].map((item) => (
             <a
               key={item.href}
@@ -76,6 +152,335 @@ export default function HowItWorksPage() {
           ))}
         </div>
       </nav>
+
+      {/* Section: RAG Pipeline Overview */}
+      <section id="pipeline" className="space-y-8 scroll-mt-20">
+        <div className="space-y-2">
+          <Badge variant="outline" className="mb-2">Pipeline</Badge>
+          <h2 className="text-3xl font-bold tracking-tight">RAG Pipeline</h2>
+          <p className="text-muted-foreground">
+            When you search, here&apos;s what happens behind the scenes — each step is configurable.
+          </p>
+        </div>
+
+        {/* Pipeline Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {PIPELINE_STEPS.map((step) => (
+            <PipelineStepCard key={step.step} {...step} />
+          ))}
+        </div>
+
+        {/* Pipeline Options Table */}
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-lg">Pipeline Options</CardTitle>
+            <CardDescription>Available providers and key parameters for each step</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-4 font-medium">Step</th>
+                    <th className="text-left py-2 pr-4 font-medium">Cloud Providers</th>
+                    <th className="text-left py-2 pr-4 font-medium">Local Options</th>
+                    <th className="text-left py-2 font-medium">Key Parameters</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PIPELINE_STEPS.filter(s => s.providers.cloud.length > 0 || s.providers.local.length > 0).map((step) => (
+                    <tr key={step.step} className="border-b last:border-0">
+                      <td className="py-3 pr-4 font-medium">{step.title}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">
+                        {step.providers.cloud.length > 0 ? step.providers.cloud.join(', ') : '—'}
+                      </td>
+                      <td className="py-3 pr-4 text-muted-foreground">
+                        {step.providers.local.join(', ')}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {step.params.map((param) => (
+                            <Badge key={param} variant="outline" className="font-mono text-xs">
+                              {param}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <Zap className="h-4 w-4 text-green-500" />
+              <span>For fully local operation, use <strong>Ollama + Jina</strong> — no API keys required.</span>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Section: Retrieval Methods */}
+      <section id="retrieval-methods" className="space-y-8 scroll-mt-20">
+        <div className="space-y-2">
+          <Badge variant="outline" className="mb-2">Retrieval</Badge>
+          <h2 className="text-3xl font-bold tracking-tight">Retrieval Methods</h2>
+          <p className="text-muted-foreground">
+            The search engine supports multiple retrieval strategies. Each has strengths depending on your query type.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Semantic Search */}
+          <Card className="rounded-2xl border-purple-500/30 bg-purple-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                <Brain className="h-5 w-5" />
+                Semantic Search
+              </CardTitle>
+              <CardDescription>Understands meaning & concepts</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">How it works:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Converts query to a vector (embedding)</li>
+                  <li>• Finds similar vectors in database</li>
+                  <li>• Understands meaning, not just keywords</li>
+                </ul>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">Best for:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Conceptual questions</li>
+                  <li>• Paraphrased queries</li>
+                  <li>• &quot;What is...&quot; questions</li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-background/80 p-3 text-xs font-mono">
+                <span className="text-muted-foreground">Query:</span> &quot;How do neural networks learn?&quot;<br/>
+                <span className="text-purple-600 dark:text-purple-400">Finds:</span> backpropagation, gradient descent, training
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* BM25 Search */}
+          <Card className="rounded-2xl border-orange-500/30 bg-orange-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                <Search className="h-5 w-5" />
+                BM25 Search
+              </CardTitle>
+              <CardDescription>Keyword & term matching</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">How it works:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Scores based on term frequency</li>
+                  <li>• Exact and partial keyword matching</li>
+                  <li>• Classic information retrieval algorithm</li>
+                </ul>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">Best for:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Exact term searches</li>
+                  <li>• Technical terminology</li>
+                  <li>• Known phrases</li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-background/80 p-3 text-xs font-mono">
+                <span className="text-muted-foreground">Query:</span> &quot;API authentication endpoint&quot;<br/>
+                <span className="text-orange-600 dark:text-orange-400">Finds:</span> exact matches for those terms
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Hybrid Search */}
+          <Card className="rounded-2xl border-green-500/30 bg-green-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <Shuffle className="h-5 w-5" />
+                Hybrid Search
+              </CardTitle>
+              <CardDescription>Best of both worlds</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">How it works:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Runs both methods in parallel</li>
+                  <li>• Combines using Reciprocal Rank Fusion</li>
+                  <li>• Alpha controls the balance</li>
+                </ul>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">Best for:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• General-purpose queries</li>
+                  <li>• When unsure which method is better</li>
+                  <li>• Balancing precision and recall</li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-background/80 p-3 text-xs font-mono">
+                <span className="text-muted-foreground">Query:</span> &quot;machine learning classification&quot;<br/>
+                <span className="text-green-600 dark:text-green-400">Finds:</span> exact matches + related concepts
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Alpha Parameter */}
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" />
+              Alpha Parameter (α)
+            </CardTitle>
+            <CardDescription>Controls the balance between Semantic and BM25 in hybrid search</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="rounded-xl border p-4 text-center">
+                <div className="font-mono text-2xl font-bold text-orange-500">α = 0.0</div>
+                <div className="text-sm font-medium mt-1">100% BM25</div>
+                <div className="text-xs text-muted-foreground">Pure keyword matching</div>
+              </div>
+              <div className="rounded-xl border border-primary/50 bg-primary/5 p-4 text-center">
+                <div className="font-mono text-2xl font-bold text-primary">α = 0.5</div>
+                <div className="text-sm font-medium mt-1">Balanced</div>
+                <div className="text-xs text-muted-foreground">50/50 blend (recommended)</div>
+              </div>
+              <div className="rounded-xl border p-4 text-center">
+                <div className="font-mono text-2xl font-bold text-purple-500">α = 1.0</div>
+                <div className="text-sm font-medium mt-1">100% Semantic</div>
+                <div className="text-xs text-muted-foreground">Pure vector similarity</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Section: Precision vs Recall */}
+      <section id="precision-recall" className="space-y-8 scroll-mt-20">
+        <div className="space-y-2">
+          <Badge variant="outline" className="mb-2">Quality Tradeoffs</Badge>
+          <h2 className="text-3xl font-bold tracking-tight">Precision vs Recall</h2>
+          <p className="text-muted-foreground">
+            Understanding this tradeoff helps you tune search for your specific needs.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card className="rounded-2xl border-blue-500/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-blue-500" />
+                Precision
+              </CardTitle>
+              <CardDescription>Of the results returned, how many are relevant?</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                High precision means fewer false positives — everything returned is likely relevant.
+              </div>
+              <div className="rounded-xl bg-blue-500/10 p-4">
+                <div className="font-mono text-lg">Precision = <span className="text-blue-500">Relevant Retrieved</span> / Total Retrieved</div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">Optimize for precision when:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• User expects top results to be accurate</li>
+                  <li>• You have specific, well-defined queries</li>
+                  <li>• Quality matters more than completeness</li>
+                </ul>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="outline">Preset</Badge>
+                <span className="text-muted-foreground">High Precision (α = 0.8)</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-green-500/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-green-500" />
+                Recall
+              </CardTitle>
+              <CardDescription>Of all relevant documents, how many were found?</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                High recall means fewer false negatives — you find most relevant documents.
+              </div>
+              <div className="rounded-xl bg-green-500/10 p-4">
+                <div className="font-mono text-lg">Recall = <span className="text-green-500">Relevant Retrieved</span> / Total Relevant</div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">Optimize for recall when:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• You need comprehensive coverage</li>
+                  <li>• Exploratory research queries</li>
+                  <li>• Can&apos;t afford to miss any relevant docs</li>
+                </ul>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="outline">Preset</Badge>
+                <span className="text-muted-foreground">High Recall (α = 0.3)</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Presets Table */}
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle>Retrieval Presets</CardTitle>
+            <CardDescription>Pre-configured settings for common use cases</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-4 font-medium">Preset</th>
+                    <th className="text-left py-2 pr-4 font-medium">Alpha (α)</th>
+                    <th className="text-left py-2 pr-4 font-medium">Reranker</th>
+                    <th className="text-left py-2 font-medium">Best For</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4">
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400">High Precision</Badge>
+                    </td>
+                    <td className="py-3 pr-4 font-mono">0.8</td>
+                    <td className="py-3 pr-4"><CheckCircle2 className="h-4 w-4 text-green-500" /></td>
+                    <td className="py-3 text-muted-foreground">Specific questions, known topics</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4">
+                      <Badge variant="outline" className="bg-primary/10 text-primary">Balanced</Badge>
+                    </td>
+                    <td className="py-3 pr-4 font-mono">0.5</td>
+                    <td className="py-3 pr-4"><CheckCircle2 className="h-4 w-4 text-green-500" /></td>
+                    <td className="py-3 text-muted-foreground">General purpose (recommended)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 pr-4">
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400">High Recall</Badge>
+                    </td>
+                    <td className="py-3 pr-4 font-mono">0.3</td>
+                    <td className="py-3 pr-4"><CheckCircle2 className="h-4 w-4 text-green-500" /></td>
+                    <td className="py-3 text-muted-foreground">Exploratory, research, broad coverage</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Section 1: High-Level Overview */}
       <section id="overview" className="space-y-8 scroll-mt-20">
@@ -1005,6 +1410,63 @@ function SettingExplainer({
         <div className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
           <BarChart3 className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{warning}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pipeline Step Card Component
+function PipelineStepCard({
+  step,
+  title,
+  icon: Icon,
+  description,
+  providers,
+  color,
+}: {
+  step: number;
+  title: string;
+  icon: React.ElementType;
+  description: string;
+  providers: { cloud: string[]; local: string[] };
+  params: string[];
+  color: string;
+}) {
+  const colorClasses: Record<string, string> = {
+    blue: 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
+    slate: 'bg-slate-500/10 border-slate-500/30 text-slate-600 dark:text-slate-400',
+    purple: 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400',
+    green: 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400',
+    amber: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
+    pink: 'bg-pink-500/10 border-pink-500/30 text-pink-600 dark:text-pink-400',
+    indigo: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400',
+  };
+
+  const hasCloudProviders = providers.cloud.length > 0;
+  const hasLocalProviders = providers.local.length > 0 && providers.local[0] !== 'Built-in';
+
+  return (
+    <div
+      className={`rounded-xl border p-3 text-center transition-all hover:scale-105 ${colorClasses[color]}`}
+    >
+      <div className={`flex h-10 w-10 mx-auto items-center justify-center rounded-lg ${colorClasses[color]}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="mt-2 font-semibold text-sm">{step}. {title}</div>
+      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{description}</div>
+      {(hasCloudProviders || hasLocalProviders) && (
+        <div className="mt-2 flex justify-center gap-1 flex-wrap">
+          {hasCloudProviders && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              Cloud
+            </Badge>
+          )}
+          {hasLocalProviders && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              Local
+            </Badge>
+          )}
         </div>
       )}
     </div>

@@ -26,6 +26,9 @@ export {
   useSettings,
   useUpdateSettings,
   useResetSettings,
+  useSetupValidation,
+  useLlmModels,
+  useEmbeddingProviders,
 } from './use-settings';
 
 // Health
@@ -42,3 +45,18 @@ export {
   useSearchTrends,
   useTopQueries,
 } from './use-analytics';
+
+// Evals
+export {
+  evalsKeys,
+  useGroundTruths,
+  useGroundTruth,
+  useCreateGroundTruth,
+  useUpdateGroundTruth,
+  useDeleteGroundTruth,
+  useEvaluationResults,
+  useEvaluationResult,
+  useEvaluationStats,
+  useRunEvaluation,
+  useEvalProviders,
+} from './use-evals';

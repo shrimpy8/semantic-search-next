@@ -231,6 +231,17 @@ class SearchQuery(Base):
         index=True,
     )
 
+    # New columns for evaluation data capture
+    retrieved_chunks: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    generated_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answer_sources: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     def __repr__(self) -> str:
         return f"<SearchQuery(id={self.id}, query='{self.query_text[:50]}...')>"
 
@@ -366,6 +377,38 @@ class Settings(Base):
         server_default="1",
     )
 
+    # Evaluation settings
+    # LLM provider to use for evaluations (openai, anthropic, ollama, or disabled)
+    eval_judge_provider: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="openai",
+        server_default="'openai'",
+    )
+    # LLM model to use for evaluations (varies by provider)
+    eval_judge_model: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="gpt-4o-mini",
+        server_default="'gpt-4o-mini'",
+    )
+
+    # Answer generation settings
+    # LLM provider for RAG answer generation (openai, anthropic, ollama)
+    answer_provider: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="openai",
+        server_default="'openai'",
+    )
+    # LLM model for answer generation (varies by provider)
+    answer_model: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="gpt-4o-mini",
+        server_default="'gpt-4o-mini'",
+    )
+
     # Timestamps
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -376,3 +419,297 @@ class Settings(Base):
 
     def __repr__(self) -> str:
         return f"<Settings(id={self.id}, key='{self.key}')>"
+
+
+# =============================================================================
+# Evaluation Models
+# =============================================================================
+
+
+class GroundTruth(Base):
+    """
+    Ground truth entries for evaluation comparison.
+
+    Stores expected (gold standard) answers for specific queries,
+    allowing comparison between generated and expected answers.
+
+    Attributes:
+        id: UUID primary key
+        collection_id: Scope to specific collection
+        query: The question/query text
+        expected_answer: The gold standard answer
+        expected_sources: Optional list of expected source documents
+        notes: Optional notes about why this is the expected answer
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+    """
+
+    __tablename__ = "ground_truths"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_answer: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_sources: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    # Relationships
+    collection: Mapped["Collection"] = relationship("Collection")
+
+    def __repr__(self) -> str:
+        return f"<GroundTruth(id={self.id}, query='{self.query[:50]}...')>"
+
+
+class EvaluationRun(Base):
+    """
+    Batch evaluation job tracking (Phase 2).
+
+    Tracks the status and progress of batch evaluation jobs
+    that evaluate multiple searches at once.
+
+    Attributes:
+        id: UUID primary key
+        name: Optional descriptive name
+        description: Optional description
+        status: Job status (pending/running/completed/failed)
+        judge_provider: LLM provider used (openai/anthropic/ollama)
+        judge_model: Specific model used
+        collection_id: Optional scope to collection
+        total_count: Total searches to evaluate
+        completed_count: Successfully evaluated count
+        failed_count: Failed evaluation count
+        created_at: Job creation timestamp
+        started_at: Job start timestamp
+        completed_at: Job completion timestamp
+        error_message: Error details if failed
+    """
+
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="'pending'",
+        index=True,
+    )
+    judge_provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    judge_model: Mapped[str] = mapped_column(String(100), nullable=False)
+    collection_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    total_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    completed_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    failed_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    collection: Mapped["Collection | None"] = relationship("Collection")
+    results: Mapped[list["EvaluationResult"]] = relationship(
+        "EvaluationResult",
+        back_populates="evaluation_run",
+        lazy="selectin",
+    )
+
+    @property
+    def progress_percent(self) -> float:
+        """Calculate completion percentage."""
+        if self.total_count == 0:
+            return 0.0
+        return (self.completed_count + self.failed_count) / self.total_count * 100
+
+    def __repr__(self) -> str:
+        return f"<EvaluationRun(id={self.id}, status='{self.status}')>"
+
+
+class EvaluationResult(Base):
+    """
+    Individual evaluation result with all metric scores.
+
+    Stores the complete evaluation of a single Q&A pair,
+    including retrieval metrics, answer metrics, and ground truth comparison.
+
+    Attributes:
+        id: UUID primary key
+        search_query_id: Link to original search (optional)
+        ground_truth_id: Link to ground truth if used (optional)
+        evaluation_run_id: Link to batch run if part of batch (optional)
+        query: The evaluated query
+        generated_answer: The LLM-generated answer
+        expected_answer: Expected answer from ground truth
+        retrieved_chunks: The chunks used for evaluation
+        judge_provider: LLM provider used for judging
+        judge_model: Specific model used for judging
+        context_relevance: Retrieval metric (0-1)
+        context_precision: Retrieval metric (0-1)
+        context_coverage: Retrieval metric (0-1)
+        faithfulness: Answer metric (0-1)
+        answer_relevance: Answer metric (0-1)
+        completeness: Answer metric (0-1)
+        ground_truth_similarity: Comparison to expected (0-1)
+        retrieval_score: Aggregate retrieval score
+        answer_score: Aggregate answer score
+        overall_score: Combined overall score
+        raw_eval_response: Raw LLM response for debugging
+        eval_latency_ms: Evaluation time in milliseconds
+        error_message: Error details if evaluation failed
+        created_at: Evaluation timestamp
+    """
+
+    __tablename__ = "evaluation_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    # Foreign keys
+    search_query_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_queries.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    ground_truth_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ground_truths.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    evaluation_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evaluation_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Input data (stored for reproducibility)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    generated_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retrieved_chunks: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    # Judge info
+    judge_provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    judge_model: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Retrieval Metrics (0.0-1.0)
+    context_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    context_precision: Mapped[float | None] = mapped_column(Float, nullable=True)
+    context_coverage: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Answer Metrics (0.0-1.0)
+    faithfulness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    answer_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    completeness: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Ground Truth Comparison (0.0-1.0)
+    ground_truth_similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Aggregate scores
+    retrieval_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    answer_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    overall_score: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
+
+    # Raw LLM output for debugging
+    raw_eval_response: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    # Search configuration (captured at evaluation time)
+    search_alpha: Mapped[float | None] = mapped_column(Float, nullable=True)
+    search_preset: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    search_use_reranker: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    reranker_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    chunk_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    chunk_overlap: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    answer_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Metadata
+    eval_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+
+    # Relationships
+    search_query: Mapped["SearchQuery | None"] = relationship("SearchQuery")
+    ground_truth: Mapped["GroundTruth | None"] = relationship("GroundTruth")
+    evaluation_run: Mapped["EvaluationRun | None"] = relationship(
+        "EvaluationRun",
+        back_populates="results",
+    )
+
+    def __repr__(self) -> str:
+        score = f"{self.overall_score:.2f}" if self.overall_score else "N/A"
+        return f"<EvaluationResult(id={self.id}, score={score})>"

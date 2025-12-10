@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Command, Zap, Brain, Layers, ArrowRight, FolderOpen, Sparkles } from 'lucide-react';
+import { Search, Command, Zap, Brain, Layers, ArrowRight, FolderOpen, Sparkles, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
   SearchPresetSelect,
   CollectionSelect,
 } from '@/components/search';
+import { SetupStatusBanner } from '@/components/setup-status-banner';
 import { useSearchStore } from '@/lib/stores';
 
 export default function Home() {
@@ -42,15 +43,15 @@ export default function Home() {
   const { data: settings } = useSettings();
 
   // Initialize search params from settings when they load
+  // Always sync with settings to respect user's configuration changes
   useEffect(() => {
-    if (settings && !hasSearched) {
-      // Only set defaults if user hasn't searched yet
+    if (settings) {
       setPreset(settings.default_preset);
       setTopK(settings.default_top_k);
       setAlpha(settings.default_alpha);
       setUseReranker(settings.default_use_reranker);
     }
-  }, [settings, hasSearched, setPreset, setTopK, setAlpha, setUseReranker]);
+  }, [settings, setPreset, setTopK, setAlpha, setUseReranker]);
 
   const hasCollections = collectionsData && collectionsData.data.length > 0;
 
@@ -100,6 +101,13 @@ export default function Home() {
       {/* Hero Section - Compact when showing results */}
       <div className={`transition-all duration-300 ${showResults ? 'py-6' : 'py-16 md:py-24'}`}>
         <div className="container">
+          {/* Setup Validation Banner - Only show before search */}
+          {!showResults && (
+            <div className="mx-auto max-w-3xl mb-6">
+              <SetupStatusBanner />
+            </div>
+          )}
+
           <div className="mx-auto max-w-3xl">
             {/* Title - Hide when showing results */}
             {!showResults && (
@@ -212,12 +220,20 @@ export default function Home() {
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                     Create a collection, upload your documents, and start searching with AI-powered semantic understanding.
                   </p>
-                  <Button asChild size="lg" className="rounded-xl">
-                    <Link href="/collections">
-                      Create your first collection
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button asChild size="lg" className="rounded-xl">
+                      <Link href="/collections">
+                        Create your first collection
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" asChild className="rounded-xl text-muted-foreground hover:text-foreground">
+                      <Link href="/learn-evals">
+                        <FlaskConical className="mr-2 h-4 w-4" />
+                        Learn about Evals
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -249,6 +265,12 @@ export default function Home() {
                       <Link href="/collections">
                         Manage Collections
                         <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" asChild className="rounded-xl text-muted-foreground hover:text-foreground">
+                      <Link href="/learn-evals">
+                        <FlaskConical className="mr-2 h-4 w-4" />
+                        Learn about Evals
                       </Link>
                     </Button>
                   </div>

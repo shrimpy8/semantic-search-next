@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 
 const SETTINGS_QUERY_KEY = ['settings'];
 const EMBEDDING_PROVIDERS_QUERY_KEY = ['embedding-providers'];
+const LLM_MODELS_QUERY_KEY = ['llm-models'];
+const SETUP_VALIDATION_QUERY_KEY = ['setup-validation'];
 
 export function useSettings() {
   return useQuery({
@@ -50,5 +52,22 @@ export function useEmbeddingProviders() {
     queryKey: EMBEDDING_PROVIDERS_QUERY_KEY,
     queryFn: () => settingsApi.getEmbeddingProviders(),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+}
+
+export function useLlmModels() {
+  return useQuery({
+    queryKey: LLM_MODELS_QUERY_KEY,
+    queryFn: () => settingsApi.getLlmModels(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+}
+
+export function useSetupValidation() {
+  return useQuery({
+    queryKey: SETUP_VALIDATION_QUERY_KEY,
+    queryFn: () => settingsApi.validate(),
+    staleTime: 30 * 1000, // Cache for 30 seconds
+    refetchOnWindowFocus: true,
   });
 }

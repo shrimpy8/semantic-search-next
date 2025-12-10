@@ -38,7 +38,11 @@ EMBEDDING_PROVIDERS = {
     "ollama": {
         "models": {
             "nomic-embed-text": {"dims": 768, "description": "Local, fast, good quality"},
+            "nomic-embed-text:v1.5": {"dims": 768, "description": "Latest version"},
             "mxbai-embed-large": {"dims": 1024, "description": "High quality local"},
+            "mxbai-embed-large:335m": {"dims": 1024, "description": "335M params"},
+            "embeddinggemma": {"dims": 768, "description": "Google Gemma embeddings"},
+            "jina/jina-embeddings-v2-base-en": {"dims": 768, "description": "Jina via Ollama"},
             "all-minilm": {"dims": 384, "description": "Lightweight local"},
             "snowflake-arctic-embed": {"dims": 1024, "description": "Strong retrieval"},
         },

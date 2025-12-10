@@ -19,6 +19,8 @@ pydantic-settings>=2.1.0
 chromadb>=0.4.22
 langchain>=0.1.0
 langchain-openai>=0.0.5
+langchain-anthropic>=0.3.0
+langchain-ollama>=0.2.0
 langchain-chroma>=0.1.0
 
 # Document Processing
@@ -28,6 +30,9 @@ python-docx>=1.1.0
 # Reranking
 sentence-transformers>=2.2.2
 cohere>=4.40
+
+# LLM Providers (for evaluation)
+anthropic>=0.40.0
 
 # BM25
 rank-bm25>=0.2.2

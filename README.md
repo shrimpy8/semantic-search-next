@@ -2,6 +2,63 @@
 
 AI-powered document search with hybrid retrieval, intelligent reranking, and confidence-based filtering.
 
+## Pipeline Overview
+
+When you search, here's what happens behind the scenes:
+
+<table>
+<tr>
+<td align="center" width="14%">
+<h3>📄</h3>
+<b>1. Document</b><br/>
+<sub>Upload & organize into collections</sub>
+</td>
+<td align="center" width="14%">
+<h3>✂️</h3>
+<b>2. Chunk</b><br/>
+<sub>Split into searchable pieces</sub>
+</td>
+<td align="center" width="14%">
+<h3>🧮</h3>
+<b>3. Embed</b><br/>
+<sub>Convert to vector embeddings</sub>
+</td>
+<td align="center" width="14%">
+<h3>🔀</h3>
+<b>4. Search</b><br/>
+<sub>Hybrid BM25 + Semantic</sub>
+</td>
+<td align="center" width="14%">
+<h3>🏆</h3>
+<b>5. Rerank</b><br/>
+<sub>Cross-encoder refinement</sub>
+</td>
+<td align="center" width="14%">
+<h3>💬</h3>
+<b>6. Answer</b><br/>
+<sub>RAG-powered response</sub>
+</td>
+<td align="center" width="14%">
+<h3>📊</h3>
+<b>7. Eval</b><br/>
+<sub>LLM-as-Judge quality</sub>
+</td>
+</tr>
+</table>
+
+### Pipeline Options
+
+| Step | What It Does | Provider Options | Key Parameters |
+|:-----|:-------------|:-----------------|:---------------|
+| **Chunk** | Splits documents into searchable pieces | Built-in | `chunk_size` (default: 1000), `chunk_overlap` (200) |
+| **Embed** | Converts text to vectors for semantic search | **Cloud:** OpenAI, Voyage, Cohere, Jina<br/>**Local:** Ollama | `embedding_model` |
+| **Search** | Finds relevant chunks using hybrid retrieval | BM25 (keywords) + ChromaDB (semantic) | `alpha` (0=keywords, 1=semantic), `top_k`, `preset` |
+| **Rerank** | AI scores each result for precise ranking | **Cloud:** Cohere<br/>**Local:** Jina | `reranker_provider` (auto/jina/cohere/none) |
+| **Answer** | Generates response from retrieved context | **Cloud:** OpenAI, Anthropic<br/>**Local:** Ollama | `answer_provider`, `answer_model` |
+| **Eval** | Measures retrieval & answer quality | **Cloud:** OpenAI, Anthropic<br/>**Local:** Ollama | `eval_judge_provider`, `eval_judge_model` |
+
+> **All settings configurable via the Settings page (`/settings`)**. For fully local operation, use Ollama + Jina — no API keys required.
+
 ## How Search Works
 
 ```
@@ -80,6 +137,7 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 |---------|-------------|
 | **Hybrid Retrieval** | Combines BM25 keyword search with semantic embeddings using Reciprocal Rank Fusion (RRF) |
 | **AI Answer Generation** | RAG-powered answers with citation verification and hallucination detection |
+| **[RAG Evaluations](#rag-evaluations)** | LLM-as-Judge evaluation with retrieval & answer quality metrics |
 | **AI Reranking** | Uses Jina cross-encoder (local) or Cohere API to rerank results for relevance |
 | **Confidence Filtering** | Separates high-confidence from low-confidence results based on configurable threshold |
 | **Answer Verification** | Extracts claims from AI answers and verifies them against source documents |
@@ -88,7 +146,7 @@ AI-powered document search with hybrid retrieval, intelligent reranking, and con
 | **Collection Scoping** | Search across all documents or within specific collections |
 | **Retrieval Presets** | High Precision / Balanced / High Recall modes |
 | **Score Transparency** | View semantic, BM25, rerank, and final scores on results |
-| **Multiple Providers** | Support for OpenAI, Ollama (local), Jina, Cohere, and Voyage AI embeddings |
+| **Multiple Providers** | Support for OpenAI, Anthropic, Ollama (local), Jina, Cohere, and Voyage AI |
 | **Dark Mode** | Full theme support with system preference detection |
 
 ## Screenshots
@@ -192,6 +250,51 @@ The app includes a comprehensive "How It Works" documentation page explaining th
 > - Local AI providers (Ollama, Jina reranker)
 > - Cloud provider setup (OpenAI, Cohere, Voyage AI)
 > - Troubleshooting guide
+
+## Local AI with Ollama (Optional)
+
+Run the entire pipeline locally without API keys using Ollama:
+
+### Install Ollama
+
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Windows - Download from https://ollama.com/download
+```
+
+### Pull Required Models
+
+```bash
+# Embedding model (choose one)
+ollama pull nomic-embed-text      # Fast, good quality (recommended)
+ollama pull mxbai-embed-large     # Higher quality, slower
+
+# LLM for answers & evaluation (choose one)
+ollama pull llama3.2              # Fast, 3B params (recommended)
+ollama pull llama3.1:8b           # Better quality, 8B params
+ollama pull mistral               # Good balance
+```
+
+### Start Ollama Server
+
+```bash
+ollama serve  # Runs on http://localhost:11434
+```
+
+### Configure in App
+
+1. Start the app and go to **Settings** (`/settings`)
+2. Configure Ollama models:
+   - **Embedding Model**: `ollama:nomic-embed-text`
+   - **Answer Provider**: `ollama` → Model: `llama3.2`
+   - **Eval Provider**: `ollama` → Model: `llama3.1:8b`
+
+> **Note**: Ollama runs locally - no API keys required. First request may be slow as models load into memory.
 
 ## Quick Start
 
@@ -423,6 +526,15 @@ GET    /api/v1/analytics/stats          Aggregate statistics
 GET    /api/v1/analytics/trends         Time-series data
 ```
 
+### Evaluations
+```
+POST   /api/v1/evals/evaluate           Run LLM-as-Judge evaluation
+GET    /api/v1/evals/results            List evaluation results
+GET    /api/v1/evals/results/{id}       Get single evaluation
+GET    /api/v1/evals/stats              Aggregate evaluation stats
+GET    /api/v1/evals/providers          List available judge providers
+```
+
 ### Settings
 ```
 GET    /api/v1/settings                 Get current settings
@@ -532,6 +644,42 @@ curl -s http://localhost:8080/api/v1/health
 - **BM25 Cache**: Automatically invalidated when documents are uploaded/deleted
 - **Confidence Threshold**: Adjustable via Settings API (`min_score_threshold`)
 - **Reranking**: Falls back to Jina local model if Cohere unavailable
+
+## RAG Evaluations
+
+Measure and improve your search quality with LLM-as-Judge evaluation. The system evaluates both retrieval quality (finding the right chunks) and answer quality (generating accurate responses).
+
+### Evaluation Metrics
+
+| Category | Metric | Description |
+|----------|--------|-------------|
+| **Retrieval** | Context Relevance | How relevant are the retrieved chunks? |
+| **Retrieval** | Context Precision | Are irrelevant chunks filtered out? |
+| **Retrieval** | Context Coverage | Is all needed information present? |
+| **Answer** | Faithfulness | Is the answer grounded in the chunks? |
+| **Answer** | Answer Relevance | Does it answer the question? |
+| **Answer** | Completeness | Is anything missing? |
+
+### Score Interpretation
+
+| Score Range | Quality | Action |
+|-------------|---------|--------|
+| > 0.8 | Excellent | System working well |
+| 0.6 - 0.8 | Good | Minor improvements possible |
+| 0.4 - 0.6 | Moderate | Review retrieval/generation settings |
+| < 0.4 | Poor | Significant tuning needed |
+
+### Judge Providers
+
+Configure the evaluation LLM in Settings (`/settings`):
+
+- **OpenAI** - GPT-4o-mini (fast), GPT-4o (best quality)
+- **Anthropic** - Claude Sonnet 4, Claude Opus 4
+- **Ollama** - Llama 3.2, Llama 3.1 (local, free)
+
+### Learn More
+
+Visit `/learn-evals` in the app for an interactive guide explaining evaluation concepts, when to use them, and how to act on results.
 
 ## License
 

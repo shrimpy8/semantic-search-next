@@ -45,3 +45,20 @@ export type {
   TrendsParams,
   TopQueriesParams,
 } from './analytics';
+export { evalsApi } from './evals';
+export type {
+  GroundTruth,
+  GroundTruthCreate,
+  GroundTruthUpdate,
+  GroundTruthListResponse,
+  EvaluationScores,
+  EvaluationResult,
+  EvaluationResultListResponse,
+  EvaluationStats,
+  ChunkForEvaluation,
+  EvaluateRequest,
+  AvailableProviders,
+  GroundTruthListParams,
+  EvaluationResultListParams,
+  EvaluationStatsParams,
+} from './evals';
