@@ -13,6 +13,7 @@
 - [AI Provider Setup](#ai-provider-setup)
   - [OpenAI (Cloud)](#openai-cloud)
   - [Ollama (Local)](#ollama-local)
+  - [Anthropic (Cloud)](#anthropic-cloud)
   - [Jina AI](#jina-ai)
   - [Cohere](#cohere)
   - [Voyage AI](#voyage-ai)
@@ -386,6 +387,41 @@ curl http://localhost:11434/api/embeddings \
 - **Model Library**: https://ollama.ai/library
 - **GitHub**: https://github.com/ollama/ollama
 - **API Docs**: https://github.com/ollama/ollama/blob/main/docs/api.md
+
+---
+
+### Anthropic (Cloud)
+
+**Best for**: High-quality answer generation and evaluation with Claude models.
+
+#### Setup
+
+1. Get API key from https://console.anthropic.com/
+2. Add to `backend/.env`:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+#### Available Models
+
+| Model | Use Case |
+|-------|----------|
+| `claude-sonnet-4-20250514` | Answer generation, Evaluation (default) |
+| `claude-3-5-haiku-20241022` | Fast, cost-effective |
+
+#### Configuration in Settings
+
+In the app's Settings page, select:
+- **Answer Provider**: Anthropic
+- **Answer Model**: claude-sonnet-4-20250514
+- **Eval Judge Provider**: Anthropic (for LLM-as-Judge)
+
+#### Documentation
+
+- **Console**: https://console.anthropic.com/
+- **API Docs**: https://docs.anthropic.com/
+- **Models**: https://docs.anthropic.com/en/docs/about-claude/models
 
 ---
 

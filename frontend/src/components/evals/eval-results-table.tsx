@@ -90,6 +90,8 @@ function formatJudge(provider: string): string {
       return 'O';
     case 'anthropic':
       return 'A';
+    case 'ollama':
+      return 'L';
     default:
       return provider.charAt(0).toUpperCase();
   }
@@ -198,8 +200,13 @@ export function EvalResultsTable({
 
   return (
     <Card className={cn('rounded-2xl', className)}>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <CardTitle className="text-lg">Evaluation Results</CardTitle>
+        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+          <span><span className="font-medium text-foreground">Mode:</span> B=Balanced, P=Precision, R=Recall, C=Custom</span>
+          <span><span className="font-medium text-foreground">Rerank:</span> J=Jina, C=Cohere, NA=Off</span>
+          <span><span className="font-medium text-foreground">Judge:</span> O=OpenAI, A=Anthropic, L=Ollama</span>
+        </div>
       </CardHeader>
       <CardContent className="px-0">
         <TooltipProvider>
@@ -273,7 +280,7 @@ export function EvalResultsTable({
                       <HelpCircle className="h-3 w-3 text-muted-foreground" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>O=OpenAI, A=Anthropic</p>
+                      <p>O=OpenAI, A=Anthropic, L=Ollama</p>
                     </TooltipContent>
                   </Tooltip>
                 </TableHead>

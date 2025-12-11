@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Command, Zap, Brain, Layers, ArrowRight, FolderOpen, Sparkles, FlaskConical } from 'lucide-react';
+import { Search, Command, Zap, Brain, Layers, ArrowRight, FolderOpen, Sparkles, FlaskConical, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,6 +94,23 @@ export default function Home() {
     }
   };
 
+  const handleClear = () => {
+    setQuery('');
+    setSearchResults(null);
+    setHasSearched(false);
+    searchInputRef.current?.focus();
+  };
+
+  // Escape to clear search
+  useKeyboardShortcut(
+    () => {
+      if (query || hasSearched) {
+        handleClear();
+      }
+    },
+    { key: 'Escape' }
+  );
+
   const showResults = hasSearched && (searchResults || searchMutation.isPending);
 
   return (
@@ -136,9 +153,20 @@ export default function Home() {
                       onChange={(e) => setQuery(e.target.value)}
                       className="h-14 pl-12 pr-20 text-base rounded-xl border-muted-foreground/20 focus:border-primary/50 shadow-sm"
                     />
-                    <kbd className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 hidden h-7 select-none items-center gap-1 rounded-md border bg-muted/50 px-2 font-mono text-xs font-medium opacity-100 sm:flex">
-                      <Command className="h-3 w-3" />K
-                    </kbd>
+                    {query ? (
+                      <button
+                        type="button"
+                        onClick={handleClear}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <kbd className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 hidden h-7 select-none items-center gap-1 rounded-md border bg-muted/50 px-2 font-mono text-xs font-medium opacity-100 sm:flex">
+                        <Command className="h-3 w-3" />K
+                      </kbd>
+                    )}
                   </div>
                   <Button
                     type="submit"
@@ -238,21 +266,26 @@ export default function Home() {
               ) : (
                 <>
                   {/* Feature Cards */}
-                  <div className="grid gap-6 md:grid-cols-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
                     <FeatureCard
                       icon={Brain}
                       title="Semantic Understanding"
-                      description="Goes beyond keywords to understand the meaning and context of your questions"
+                      description="Goes beyond keywords to understand meaning and context"
                     />
                     <FeatureCard
                       icon={Zap}
                       title="Hybrid Search"
-                      description="Combines traditional keyword matching with AI embeddings for best results"
+                      description="Combines keyword matching with AI embeddings"
                     />
                     <FeatureCard
                       icon={Layers}
                       title="Smart Reranking"
-                      description="AI reranks results to surface the most relevant content first"
+                      description="AI reranks to surface the most relevant content"
+                    />
+                    <FeatureCard
+                      icon={FlaskConical}
+                      title="RAG Evaluations"
+                      description="LLM-as-Judge quality scoring for search results"
                     />
                   </div>
 

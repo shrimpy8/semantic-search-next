@@ -344,6 +344,9 @@ async def search(
             # Get answer provider/model from DB settings
             answer_provider = db_settings.answer_provider
             answer_model_used = db_settings.answer_model
+            # Get answer style and map to prompt key
+            answer_style = getattr(db_settings, 'answer_style', 'balanced')
+            prompt_key = f"qa_{answer_style}"  # qa_concise, qa_balanced, or qa_detailed
 
             # Build context from top results
             source_names = [r.document_name for r in high_confidence_results[:3]]
@@ -352,11 +355,12 @@ async def search(
                 for i, r in enumerate(high_confidence_results[:3])  # Use top 3 results for context
             ])
 
-            # Initialize QA chain with provider from settings
+            # Initialize QA chain with provider and prompt style from settings
             qa_chain = QAChain(
                 provider=answer_provider,
                 model_name=answer_model_used,
                 temperature=0.0,
+                prompt_key=prompt_key,
             )
             answer = qa_chain.generate_answer(
                 question=request.query,

@@ -1,6 +1,6 @@
 # Semantic Search Next
 
-AI-powered document search with hybrid retrieval, intelligent reranking, and confidence-based filtering.
+A full-stack RAG (Retrieval Augmented Generation) application with hybrid search, cross-encoder reranking, citation-verified AI answers, and LLM-as-Judge evaluation. Supports multiple AI providers including OpenAI, Anthropic, and Ollama for fully local operation.
 
 ## Pipeline Overview
 
@@ -151,34 +151,29 @@ When you search, here's what happens behind the scenes:
 
 ## Screenshots
 
-### Semantic Search Home
-![Semantic Search Home](screenshots/Semantic_Search_Home_0.png)
+### Semantic Search with AI Answer
+![Semantic Search Result](screenshots/1_Semantic-Search-Result.png)
 
-### AI-Generated Answer with Citations
-![AI Answer with Citations](screenshots/Generated_AI_Answer_Citation_1.png)
+### Detailed Relevance Scores
+![Search Result Scores](screenshots/2_Semantic-Search-Result-Score.png)
 
-### Document Chunk Viewer
-![Document Chunks](screenshots/Document_Chunk_Validation.png)
+### LLM-as-Judge Evaluation
+Run evaluations to measure search quality with configurable judge models.
 
-### How It Works Page
-
-The app includes a comprehensive "How It Works" documentation page explaining the search technology.
-
-**[View Full Page Screenshot](screenshots/HowItWorksFull_Semantic-Search.png)**
-
-| Section | Screenshot |
-|---------|------------|
-| Overview | ![How It Works Overview](screenshots/1_HowItWorks.png) |
-| Search Quality Progression | ![Quality Layers](screenshots/3_HowItWorks_SearchQuality.png) |
+| Run Evaluation | Evaluation Output |
+|----------------|-------------------|
+| ![Run Eval](screenshots/3_Semantic-Search-Result-Run-Eval.png) | ![Eval Output](screenshots/4_Semantic-Search-Result-Eval-Output.png) |
 
 ### More Screenshots
 
 | Feature | Description |
 |---------|-------------|
-| [Collections](screenshots/Collections_Organization.png) | Organize documents into searchable collections with custom settings |
-| [Search Settings](screenshots/Search_Settings.png) | Configure retrieval presets, reranking, and confidence thresholds |
-| [Advanced Settings](screenshots/Advanced_Search_Settings.png) | Fine-tune alpha blending, context window, and score display |
-| [Analytics Dashboard](screenshots/Analytics_Dashboard.png) | Track search history, latency trends, and query patterns |
+| [Evaluation Details](screenshots/5_Semantic-Search-Result-Eval-Details.png) | Detailed breakdown of evaluation metrics and scores |
+| [Collections](screenshots/6_Semantic-Search-Collections.png) | Organize documents into searchable collections |
+| [Documents](screenshots/7_Semantic-Search-Collections-Documents.png) | View and manage documents within collections |
+| [Analytics](screenshots/8_Semantic-Search-Analytics.png) | Track search history, latency trends, and query patterns |
+| [How It Works](screenshots/9_Semantic-Search-HowItWorks.png) | Interactive documentation explaining search technology |
+| [Settings](screenshots/10_Semantic-Search-Settings.png) | Configure providers, models, and search parameters |
 
 ## Architecture
 
@@ -219,7 +214,7 @@ The app includes a comprehensive "How It Works" documentation page explaining th
    - BM25 keyword search (in-memory, per-collection cache with auto-invalidation)
 3. **Reciprocal Rank Fusion (RRF)** - Merge results with configurable alpha
 4. **Reranking** - Jina cross-encoder (local) or Cohere API
-5. **Confidence Filtering** - Split results by `min_score_threshold` (default: 30%)
+5. **Confidence Filtering** - Split results by `min_score_threshold` (default: 35%)
 6. **Response** - High-confidence results + hidden low-confidence results
 
 ## Tech Stack
@@ -505,7 +500,7 @@ POST   /api/v1/search                   Execute search with optional AI answer
   "results": [...],
   "low_confidence_results": [...],
   "low_confidence_count": 3,
-  "min_score_threshold": 0.30,
+  "min_score_threshold": 0.35,
   "answer": "Machine learning is...",
   "answer_verification": {
     "confidence": "high",

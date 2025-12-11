@@ -355,8 +355,8 @@ class Settings(Base):
     min_score_threshold: Mapped[float] = mapped_column(
         Float,
         nullable=False,
-        default=0.30,
-        server_default="0.30",
+        default=0.35,
+        server_default="0.35",
     )
 
     # AI Answer settings
@@ -407,6 +407,14 @@ class Settings(Base):
         nullable=False,
         default="gpt-4o-mini",
         server_default="'gpt-4o-mini'",
+    )
+    # Answer style: concise, balanced, or detailed
+    # Controls prompt used for RAG answer generation
+    answer_style: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="balanced",
+        server_default="'balanced'",
     )
 
     # Timestamps

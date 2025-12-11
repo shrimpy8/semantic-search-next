@@ -472,6 +472,9 @@ class SettingsResponse(BaseModel):
     answer_model: str = Field(
         description="LLM model for answer generation (varies by provider)"
     )
+    answer_style: str = Field(
+        description="Answer style: concise (brief), balanced (default), or detailed (comprehensive)"
+    )
 
     # Timestamps
     updated_at: datetime
@@ -498,6 +501,7 @@ class SettingsResponse(BaseModel):
             eval_judge_model=model.eval_judge_model,
             answer_provider=model.answer_provider,
             answer_model=model.answer_model,
+            answer_style=model.answer_style,
             updated_at=model.updated_at,
         )
 
@@ -605,6 +609,11 @@ class SettingsUpdate(BaseModel):
         default=None,
         max_length=100,
         description="LLM model for answer generation (varies by provider)"
+    )
+    answer_style: str | None = Field(
+        default=None,
+        pattern="^(concise|balanced|detailed)$",
+        description="Answer style: concise (brief), balanced (default), or detailed (comprehensive)"
     )
 
 

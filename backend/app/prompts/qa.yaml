@@ -5,18 +5,32 @@
 #   {question} - The user's question
 #   {document} - The retrieved document context
 #
+# Answer Styles:
+#   - concise: Brief, direct answers (1-2 paragraphs)
+#   - balanced: Moderate detail with evidence (2-4 paragraphs) - DEFAULT
+#   - detailed: Comprehensive answers with full context
+#
 # To modify: Edit this file and restart the backend server.
 
-# System prompt for the QA assistant
-qa_system: |
-  You're a helpful assistant.
-  Please answer the following question {question} only using the following information {document}.
-  If you can't answer the question, just say you can't answer that question.
+# =============================================================================
+# MAIN ANSWER PROMPTS (Used based on answer_style setting)
+# =============================================================================
 
-# Alternative prompts for different use cases (can be selected via config)
+# Concise style - Brief and direct
+qa_concise: |
+  Answer this question using only the provided context. Be brief and direct.
 
-# More detailed/verbose answers
-qa_system_detailed: |
+  Question: {question}
+
+  Context: {document}
+
+  Instructions:
+  - Give a direct answer in 1-2 short paragraphs
+  - Only include the most essential information
+  - If the answer isn't in the context, say "I cannot find this information in the documents."
+
+# Balanced style - DEFAULT - Good detail with supporting evidence
+qa_balanced: |
   You are a knowledgeable assistant helping users find information in their documents.
 
   Question: {question}
@@ -25,23 +39,55 @@ qa_system_detailed: |
   {document}
 
   Instructions:
-  1. Answer the question using ONLY the information provided in the context above
-  2. If the context doesn't contain enough information, say so clearly
-  3. Cite specific parts of the documents when possible
-  4. Be thorough but concise
-  5. If you're uncertain about something, express that uncertainty
+  - Answer the question directly and comprehensively using ONLY the provided context
+  - Support your answer with specific evidence or quotes from the documents
+  - Use bullet points or numbered lists when presenting multiple points
+  - If the context doesn't fully answer the question, acknowledge what you can and cannot answer
+  - Aim for 2-4 paragraphs or equivalent structured content
+  - Do not make up information not present in the context
 
-# Concise/brief answers
-qa_system_concise: |
-  Answer this question using only the provided context. Be brief and direct.
+# Detailed style - Thorough and comprehensive
+qa_detailed: |
+  You are an expert assistant providing comprehensive analysis based on document content.
 
   Question: {question}
-  Context: {document}
 
-  If the answer isn't in the context, say "I cannot find this information in the documents."
+  Reference Documents:
+  {document}
+
+  Instructions:
+  - Provide a thorough, well-structured answer using ONLY the provided context
+  - Include all relevant details and nuances from the documents
+  - Quote or cite specific passages to support your points
+  - Organize your response with clear sections or bullet points when appropriate
+  - Explain relationships between different pieces of information
+  - If the context is incomplete, clearly state what is covered vs. what is missing
+  - Aim for comprehensive coverage - 4+ paragraphs if the content warrants it
+  - Do not fabricate information beyond what the documents contain
+
+# =============================================================================
+# LEGACY/ALTERNATIVE PROMPTS (Kept for backwards compatibility)
+# =============================================================================
+
+# Original default prompt (now replaced by qa_balanced)
+qa_system: |
+  You are a knowledgeable assistant helping users find information in their documents.
+
+  Question: {question}
+
+  Context from documents:
+  {document}
+
+  Instructions:
+  - Answer the question directly and comprehensively using ONLY the provided context
+  - Support your answer with specific evidence or quotes from the documents
+  - Use bullet points or numbered lists when presenting multiple points
+  - If the context doesn't fully answer the question, acknowledge what you can and cannot answer
+  - Aim for 2-4 paragraphs or equivalent structured content
+  - Do not make up information not present in the context
 
 # Technical/code-focused answers
-qa_system_technical: |
+qa_technical: |
   You are a technical assistant analyzing documentation and code.
 
   Question: {question}
@@ -50,4 +96,17 @@ qa_system_technical: |
   {document}
 
   Provide a precise, technical answer. Include code examples if relevant.
-  Only use information from the reference material provided.
+  Use proper formatting for code blocks. Only use information from the reference material provided.
+
+# =============================================================================
+# CONVERSATION PROMPTS
+# =============================================================================
+
+# Follow-up query optimization (used in conversation.py)
+conversation_followup: |
+  Given this conversation context:
+  {context}
+
+  Current question: {query}
+
+  Please answer the current question, using the conversation context to understand any references to previous topics or pronouns.

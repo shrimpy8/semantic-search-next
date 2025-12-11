@@ -98,12 +98,25 @@ filter={"document_id": {"$in": ["doc-1", "doc-2"]}}
 | Service | Model | Purpose | Dimensions |
 |---------|-------|---------|------------|
 | Embeddings | `text-embedding-3-large` | Convert text to vectors | 3072 |
-| LLM (optional) | `gpt-4o-mini` | Answer generation | - |
+| LLM | `gpt-4o-mini` | Answer generation, Evaluation | - |
 
 **Embedding Flow:**
 ```
 Text chunk (500 chars) → OpenAI API → 3072-dim vector → ChromaDB
 ```
+
+### Anthropic API
+
+| Service | Model | Purpose |
+|---------|-------|---------|
+| LLM | `claude-sonnet-4-20250514` | Answer generation, Evaluation |
+
+### Ollama (Local)
+
+| Service | Model | Purpose | Dimensions |
+|---------|-------|---------|------------|
+| Embeddings | `nomic-embed-text` | Local vector embeddings | 768 |
+| LLM | `llama3.2`, `mistral` | Answer generation, Evaluation | - |
 
 ### Jina AI
 
@@ -240,11 +253,11 @@ User Query: "How does authentication work?"
 ┌─────────────────────────────────────────────────────────────────┐
 │  4. CONFIDENCE FILTERING                                        │
 │                                                                 │
-│  Results split by min_score_threshold (default: 30%):           │
+│  Results split by min_score_threshold (default: 35%):           │
 │                                                                 │
 │  ┌─────────────────────────┐  ┌─────────────────────────┐       │
 │  │  HIGH CONFIDENCE        │  │  LOW CONFIDENCE         │       │
-│  │  (final_score >= 0.30)  │  │  (final_score < 0.30)   │       │
+│  │  (final_score >= 0.35)  │  │  (final_score < 0.35)   │       │
 │  │                         │  │                         │       │
 │  │  Shown by default       │  │  Hidden by default      │       │
 │  │  in results[]           │  │  in low_confidence[]    │       │
@@ -262,7 +275,7 @@ User Query: "How does authentication work?"
 │    "results": [...],           // High-confidence results       │
 │    "low_confidence_results": [...],  // Below threshold         │
 │    "low_confidence_count": 3,  // Count of hidden results       │
-│    "min_score_threshold": 0.30,  // Current threshold           │
+│    "min_score_threshold": 0.35,  // Current threshold           │
 │    "latency_ms": 245                                            │
 │  }                                                              │
 │                                                                 │
@@ -302,6 +315,14 @@ User Query: "How does authentication work?"
 ### AI Answer Generation Flow
 
 When `generate_answer=true`:
+
+**Answer Style Options:**
+| Style | Description |
+|-------|-------------|
+| `concise` | Brief, to-the-point answers |
+| `detailed` | Comprehensive explanations |
+| `technical` | Technical language, assumes expertise |
+| `conversational` | Friendly, accessible tone |
 
 ```
 Search Results (Top K chunks)
@@ -366,6 +387,59 @@ Search Results (Top K chunks)
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### LLM-as-Judge Evaluation Flow
+
+Evaluate search quality using an LLM judge to score relevance, faithfulness, and completeness.
+
+```
+Search Results + AI Answer
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  1. EVALUATION REQUEST                                          │
+│     • Query, Answer, Retrieved Chunks                           │
+│     • Ground truth (optional)                                   │
+│     • Judge provider: OpenAI, Anthropic, or Ollama              │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  2. LLM JUDGE SCORING                                           │
+│                                                                 │
+│  Metrics evaluated (0-100 scale):                               │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  • Relevance: How relevant are chunks to the query?         ││
+│  │  • Faithfulness: Is the answer grounded in chunks?          ││
+│  │  • Completeness: Does answer fully address the query?       ││
+│  │  • Context Precision: Are top chunks most relevant?         ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  3. RESPONSE                                                    │
+│                                                                 │
+│  {                                                              │
+│    "scores": {                                                  │
+│      "relevance": 85,                                           │
+│      "faithfulness": 90,                                        │
+│      "completeness": 75,                                        │
+│      "context_precision": 80                                    │
+│    },                                                           │
+│    "overall_score": 82.5,                                       │
+│    "reasoning": "The answer accurately reflects...",            │
+│    "suggestions": ["Consider adding..."]                        │
+│  }                                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Judge Providers:**
+| Provider | Model | Notes |
+|----------|-------|-------|
+| OpenAI | `gpt-4o-mini` | Fast, cost-effective |
+| Anthropic | `claude-sonnet-4-20250514` | High quality |
+| Ollama | `llama3.2`, `mistral` | Local, no API cost |
+
 ---
 
 ## API Endpoints
@@ -414,6 +488,14 @@ Search Results (Top K chunks)
 | `/api/v1/settings`       | GET    | Get current settings |
 | `/api/v1/settings`       | PATCH  | Update settings      |
 | `/api/v1/settings/reset` | POST   | Reset to defaults    |
+
+### Evals API
+
+| Endpoint                 | Method | Description                    |
+|--------------------------|--------|--------------------------------|
+| `/api/v1/evals/run`      | POST   | Run LLM-as-Judge evaluation    |
+| `/api/v1/evals`          | GET    | List evaluation history        |
+| `/api/v1/evals/{id}`     | GET    | Get evaluation details         |
 
 ### Analytics API
 

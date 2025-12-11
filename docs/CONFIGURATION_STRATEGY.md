@@ -67,6 +67,7 @@ embedding_model: str = "openai:text-embedding-3-large"  # Format: "provider:mode
 # AI Answer Generation
 answer_provider: str = "openai"       # openai, anthropic, ollama
 answer_model: str = "gpt-4o-mini"
+answer_style: str = "detailed"        # concise, detailed, technical, conversational
 
 # Evaluation Judge
 eval_judge_provider: str = "openai"   # openai, anthropic, ollama
@@ -84,7 +85,7 @@ default_alpha: float = 0.5
 default_use_reranker: bool = True
 default_preset: str = "balanced"
 default_top_k: int = 5
-min_score_threshold: float = 0.30
+min_score_threshold: float = 0.35
 context_window_size: int = 1
 
 # Answer Generation
@@ -157,6 +158,7 @@ Settings Page
 │   ├── Answer Generation
 │   │   ├── Provider (dropdown)
 │   │   ├── Model (dropdown, filtered by provider)
+│   │   ├── Style (dropdown: concise/detailed/technical/conversational)
 │   │   └── Enable by Default (toggle)
 │   ├── Evaluation Judge
 │   │   ├── Provider (dropdown)
@@ -314,7 +316,7 @@ These can be changed at any time without migration:
 | **API Keys** | `.env` | OPENAI_API_KEY, ANTHROPIC_API_KEY, COHERE_API_KEY, etc. |
 | **Infrastructure** | `.env` | Database URLs, server ports, Ollama URL |
 | **Embeddings** | DB Settings | `embedding_model` includes provider prefix |
-| **AI Answers** | DB Settings | `answer_provider` + `answer_model` |
+| **AI Answers** | DB Settings | `answer_provider` + `answer_model` + `answer_style` |
 | **Eval Judge** | DB Settings | `eval_judge_provider` + `eval_judge_model` |
 | **Reranking** | DB Settings | `reranker_provider` only (model is fixed per provider) |
 | **Search Defaults** | DB Settings | All search parameters |

@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useSettings, useUpdateSettings, useResetSettings, useSetupValidation } from '@/hooks';
-import { Settings as SettingsIcon, RefreshCw, Save, AlertCircle, Info, ExternalLink, Sparkles, Layers, CheckCircle2, Clock, Zap, FlaskConical, AlertTriangle, ShieldCheck, Server, Database, Container, Terminal } from 'lucide-react';
+import { Settings as SettingsIcon, RefreshCw, Save, AlertCircle, Info, ExternalLink, Sparkles, Layers, CheckCircle2, Zap, FlaskConical, AlertTriangle, ShieldCheck, Server, Database, Container, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ColorZoneSlider } from '@/components/ui/color-zone-slider';
 import {
   Select,
@@ -216,6 +215,7 @@ export default function SettingsPage() {
         eval_judge_model: settings.eval_judge_model,
         answer_provider: settings.answer_provider,
         answer_model: settings.answer_model,
+        answer_style: settings.answer_style,
       });
       setHasChanges(false);
     }
@@ -241,7 +241,21 @@ export default function SettingsPage() {
   if (isLoading) {
     return (
       <div className="container py-8">
-        <SettingsSkeleton />
+        <div className="flex flex-col items-center justify-center py-24 animate-in fade-in duration-300">
+          <div className="relative mb-6">
+            <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-xl animate-pulse" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+              <Server className="h-8 w-8 text-primary animate-pulse" />
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold mb-2">Checking Services...</h3>
+          <p className="text-sm text-muted-foreground mb-4">Connecting to backend API</p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -349,21 +363,33 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Documentation Links */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Actions & Documentation Links */}
+          <div className="flex flex-col items-center gap-4">
             <Button onClick={() => refetch()} className="rounded-xl">
               <RefreshCw className="mr-2 h-4 w-4" />
               Try Again
             </Button>
-            <a
-              href="https://github.com/shrimpy8/semantic-search-next#readme"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="h-4 w-4" />
-              View Setup Documentation
-            </a>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+              <a
+                href="https://github.com/shrimpy8/semantic-search-next#readme"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" />
+                README
+              </a>
+              <span className="text-muted-foreground">•</span>
+              <a
+                href="https://github.com/shrimpy8/semantic-search-next/blob/main/docs/INFRASTRUCTURE.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Infrastructure Guide
+              </a>
+            </div>
           </div>
 
           {/* Error Details (collapsed) */}
@@ -566,12 +592,12 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="min_score_threshold">Low Confidence Threshold</Label>
                 <span className="text-sm text-muted-foreground">
-                  {((formData.min_score_threshold ?? 0.30) * 100).toFixed(0)}%
+                  {((formData.min_score_threshold ?? 0.35) * 100).toFixed(0)}%
                 </span>
               </div>
               <Slider
                 id="min_score_threshold"
-                value={[formData.min_score_threshold ?? 0.30]}
+                value={[formData.min_score_threshold ?? 0.35]}
                 onValueChange={([value]) => updateField('min_score_threshold', value)}
                 min={0}
                 max={0.5}
@@ -586,7 +612,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* AI Answer & Context Section */}
+        {/* AI Answer & Context Section - 2-Column Layout */}
         <Card className="rounded-2xl md:col-span-2">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -597,212 +623,180 @@ export default function SettingsPage() {
               Configure AI-generated answers and contextual chunk retrieval
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
-            {/* Generate AI Answer Toggle */}
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1 flex-1">
-                  <Label htmlFor="generate_answer" className="text-base">Generate AI Answers by Default</Label>
-                  <p className="text-sm text-muted-foreground">
-                    When enabled, search results will include an AI-synthesized answer that summarizes
-                    information from the top matching chunks.
-                  </p>
+          <CardContent>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Left Column: All Answer Settings (3 rows) */}
+              <div className="space-y-5">
+                {/* Row 1: Generate AI Answers Toggle */}
+                <div className="flex items-start justify-between gap-4 p-4 rounded-xl border bg-muted/20">
+                  <div className="space-y-1 flex-1">
+                    <Label htmlFor="generate_answer" className="text-base">Generate AI Answers by Default</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Include an AI-synthesized answer with search results.
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Verified citations</span>
+                      <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3 text-orange-500" /> +1-2s latency</span>
+                    </div>
+                  </div>
+                  <Switch
+                    id="generate_answer"
+                    checked={formData.default_generate_answer ?? false}
+                    onCheckedChange={(checked) => updateField('default_generate_answer', checked)}
+                  />
                 </div>
-                <Switch
-                  id="generate_answer"
-                  checked={formData.default_generate_answer ?? false}
-                  onCheckedChange={(checked) => updateField('default_generate_answer', checked)}
-                />
+
+                {/* Row 2: Answer LLM Selection */}
+                <div className="space-y-2">
+                  <Label>Answer Generation LLM</Label>
+                  <Select
+                    value={formData.answer_model}
+                    onValueChange={(value) => {
+                      const provider = getLLMProviderFromModel(value);
+                      if (provider) {
+                        updateField('answer_provider', provider as Settings['answer_provider']);
+                      }
+                      updateField('answer_model', value);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select model">
+                        {formData.answer_model && formatLLMDisplayValue(formData.answer_model)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(LLM_PROVIDERS).map(([key, provider]) => (
+                        <SelectGroup key={key}>
+                          <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
+                            {provider.label}
+                            {provider.requiresApiKey && (
+                              <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
+                            )}
+                          </SelectLabel>
+                          {provider.models.map((model) => (
+                            <SelectItem key={model.value} value={model.value}>
+                              <div className="flex items-center gap-2">
+                                <span>{model.label}</span>
+                                {model.recommended && <span className="text-amber-500">⭐</span>}
+                                <span className="text-xs text-muted-foreground ml-auto">{model.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formData.answer_provider && (
+                    <p className="text-xs text-muted-foreground">
+                      {formData.answer_provider === 'openai' && <>Requires <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">OPENAI_API_KEY</code></>}
+                      {formData.answer_provider === 'anthropic' && <>Requires <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">ANTHROPIC_API_KEY</code></>}
+                      {formData.answer_provider === 'ollama' && <>Run: <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">ollama pull {formData.answer_model}</code></>}
+                    </p>
+                  )}
+                </div>
+
+                {/* Row 3: Answer Style Selection */}
+                <div className="space-y-2">
+                  <Label>Answer Style</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'concise', label: 'Concise', desc: '1-2 paragraphs', icon: Zap },
+                      { value: 'balanced', label: 'Balanced', desc: '2-4 paragraphs', icon: Layers },
+                      { value: 'detailed', label: 'Detailed', desc: '4+ paragraphs', icon: Info },
+                    ].map((style) => (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() => updateField('answer_style', style.value as Settings['answer_style'])}
+                        className={`relative rounded-lg border p-3 text-center transition-all hover:border-primary/50 ${
+                          formData.answer_style === style.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-muted-foreground/20'
+                        }`}
+                      >
+                        <style.icon className={`h-4 w-4 mx-auto mb-1 ${formData.answer_style === style.value ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <p className="font-medium text-xs">{style.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{style.desc}</p>
+                        {formData.answer_style === style.value && (
+                          <CheckCircle2 className="h-3 w-3 text-primary absolute top-1.5 right-1.5" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* AI Answer Info Panel */}
-              <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                  How AI Answers Work
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">Verified Citations</span>
-                      <p className="text-muted-foreground">Every claim is checked against source documents with clickable references</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Zap className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">Same Search Quality</span>
-                      <p className="text-muted-foreground">Retrieval results are identical whether AI answer is on or off</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">Added Latency</span>
-                      <p className="text-muted-foreground">Adds ~1-2 seconds for LLM processing (GPT-4o-mini)</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">Confidence Warnings</span>
-                      <p className="text-muted-foreground">Low confidence answers are flagged with warnings for transparency</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-muted-foreground/10" />
-
-            {/* Context Window Size */}
-            <div className="space-y-4">
-              <div className="space-y-1">
+              {/* Right Column: Context Window */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="context_window" className="text-base">Context Window Size</Label>
-                  <span className="text-sm font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                    {formData.context_window_size ?? 1} chunk{(formData.context_window_size ?? 1) > 1 ? 's' : ''} before/after
+                  <Label>Context Window</Label>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                    ±{formData.context_window_size ?? 1} chunks
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Number of adjacent chunks to fetch around each matched result for fuller context.
+                  Adjacent chunks fetched around each matched result for fuller context.
                 </p>
-              </div>
 
-              {/* Context Window Visual Selector */}
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  { value: 1, label: 'Minimal', description: 'Fast lookups, well-structured docs', icon: Zap, color: 'text-green-500' },
-                  { value: 2, label: 'Balanced', description: 'General use, most documents', icon: Layers, color: 'text-blue-500' },
-                  { value: 3, label: 'Maximum', description: 'Dense technical docs, research', icon: Layers, color: 'text-purple-500' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => updateField('context_window_size', option.value)}
-                    className={`relative flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50 ${
-                      (formData.context_window_size ?? 1) === option.value
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted-foreground/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <option.icon className={`h-4 w-4 ${option.color}`} />
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">({option.value})</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{option.description}</p>
-                    {(formData.context_window_size ?? 1) === option.value && (
-                      <div className="absolute top-2 right-2">
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Context Window Visual Diagram */}
-              <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-muted-foreground" />
-                  What You&apos;ll See
-                </p>
-                <div className="font-mono text-xs space-y-1 bg-background/50 rounded-lg p-3 border">
-                  {(formData.context_window_size ?? 1) >= 2 && (
-                    <div className="text-muted-foreground/50 truncate">...chunk {(formData.context_window_size ?? 1) > 2 ? 'N-2' : ''}</div>
-                  )}
-                  {(formData.context_window_size ?? 1) >= 1 && (
-                    <div className="text-muted-foreground/60 truncate italic">Previous context chunk...</div>
-                  )}
-                  <div className="bg-primary/10 border-l-2 border-primary px-2 py-1 rounded-r font-medium text-foreground">
-                    ✓ Matched chunk (highlighted)
-                  </div>
-                  {(formData.context_window_size ?? 1) >= 1 && (
-                    <div className="text-muted-foreground/60 truncate italic">Following context chunk...</div>
-                  )}
-                  {(formData.context_window_size ?? 1) >= 2 && (
-                    <div className="text-muted-foreground/50 truncate">...chunk {(formData.context_window_size ?? 1) > 2 ? 'N+2' : ''}</div>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {(formData.context_window_size ?? 1) === 1 && 'Each result shows 1 chunk before and 1 after the match. Click "Show context" for more.'}
-                  {(formData.context_window_size ?? 1) === 2 && 'Each result shows 2 chunks before and 2 after — good for understanding argument flow.'}
-                  {(formData.context_window_size ?? 1) === 3 && 'Maximum context: 3 chunks before and 3 after. Best for dense, technical documents.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-muted-foreground/10" />
-
-            {/* Answer LLM Selection - Single Grouped Dropdown */}
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <Label className="text-base">Answer Generation LLM</Label>
-                <p className="text-sm text-muted-foreground">
-                  Select the LLM for generating AI answers from search results.
-                </p>
-              </div>
-
-              <Select
-                value={formData.answer_model}
-                onValueChange={(value) => {
-                  const provider = getLLMProviderFromModel(value);
-                  if (provider) {
-                    updateField('answer_provider', provider as Settings['answer_provider']);
-                  }
-                  updateField('answer_model', value);
-                }}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select model">
-                    {formData.answer_model && formatLLMDisplayValue(formData.answer_model)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(LLM_PROVIDERS).map(([key, provider]) => (
-                    <SelectGroup key={key}>
-                      <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
-                        {provider.label}
-                        {provider.requiresApiKey && (
-                          <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
-                        )}
-                      </SelectLabel>
-                      {provider.models.map((model) => (
-                        <SelectItem key={model.value} value={model.value}>
-                          <div className="flex items-center gap-2">
-                            <span>{model.label}</span>
-                            {model.recommended && <span className="text-amber-500">⭐</span>}
-                            <span className="text-xs text-muted-foreground ml-auto">{model.description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                {/* Context Window Selector */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 1, label: 'Minimal', desc: 'Fast lookups', icon: Zap, color: 'text-green-500' },
+                    { value: 2, label: 'Balanced', desc: 'General use', icon: Layers, color: 'text-blue-500' },
+                    { value: 3, label: 'Maximum', desc: 'Dense docs', icon: Layers, color: 'text-purple-500' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => updateField('context_window_size', option.value)}
+                      className={`relative rounded-lg border p-3 text-center transition-all hover:border-primary/50 ${
+                        (formData.context_window_size ?? 1) === option.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-muted-foreground/20'
+                      }`}
+                    >
+                      <option.icon className={`h-4 w-4 mx-auto mb-1 ${(formData.context_window_size ?? 1) === option.value ? 'text-primary' : option.color}`} />
+                      <p className="font-medium text-xs">{option.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{option.desc}</p>
+                      {(formData.context_window_size ?? 1) === option.value && (
+                        <CheckCircle2 className="h-3 w-3 text-primary absolute top-1.5 right-1.5" />
+                      )}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-
-              {/* Provider-specific info */}
-              {formData.answer_provider && (
-                <div className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  {formData.answer_provider === 'openai' && (
-                    <p>Requires <code className="px-1 py-0.5 rounded bg-muted font-mono">OPENAI_API_KEY</code> environment variable.</p>
-                  )}
-                  {formData.answer_provider === 'anthropic' && (
-                    <p>Requires <code className="px-1 py-0.5 rounded bg-muted font-mono">ANTHROPIC_API_KEY</code> environment variable.</p>
-                  )}
-                  {formData.answer_provider === 'ollama' && (
-                    <p>Runs locally. Pull model: <code className="px-1 py-0.5 rounded bg-muted font-mono">ollama pull {formData.answer_model || 'llama3.2:3b'}</code></p>
-                  )}
                 </div>
-              )}
+
+                {/* Context Preview */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-medium flex items-center gap-1.5">
+                    <Layers className="h-3 w-3 text-muted-foreground" />
+                    Preview
+                  </p>
+                  <div className="font-mono text-[10px] space-y-0.5 bg-background/50 rounded p-2 border">
+                    {(formData.context_window_size ?? 1) >= 3 && (
+                      <div className="text-muted-foreground/40 truncate">...chunk N-3</div>
+                    )}
+                    {(formData.context_window_size ?? 1) >= 2 && (
+                      <div className="text-muted-foreground/50 truncate">...chunk N-2</div>
+                    )}
+                    <div className="text-muted-foreground/60 truncate">Previous chunk...</div>
+                    <div className="bg-primary/10 border-l-2 border-primary px-1.5 py-0.5 rounded-r font-medium text-foreground text-[11px]">
+                      ✓ Matched chunk
+                    </div>
+                    <div className="text-muted-foreground/60 truncate">Following chunk...</div>
+                    {(formData.context_window_size ?? 1) >= 2 && (
+                      <div className="text-muted-foreground/50 truncate">...chunk N+2</div>
+                    )}
+                    {(formData.context_window_size ?? 1) >= 3 && (
+                      <div className="text-muted-foreground/40 truncate">...chunk N+3</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Advanced Settings Section */}
+        {/* Advanced Settings Section - 2 Column Layout */}
         <Card className="rounded-2xl md:col-span-2">
           <CardHeader>
             <CardTitle>Advanced Settings</CardTitle>
@@ -810,268 +804,233 @@ export default function SettingsPage() {
               Configure embedding model, chunking, and reranker settings
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
-            {/* Embedding Model with Provider Groups */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="embedding_model">Embedding Model</Label>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Info className="h-3 w-3" />
-                  Changing model requires re-indexing documents
-                </span>
-              </div>
-              <Select
-                value={formData.embedding_model}
-                onValueChange={(value) => updateField('embedding_model', value)}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select model">
-                    {formData.embedding_model && (() => {
-                      const info = getProviderFromModel(formData.embedding_model);
-                      if (!info) return formData.embedding_model;
-                      const model = info.provider.models.find(m => m.value === formData.embedding_model);
-                      return `${info.provider.label} / ${model?.label || formData.embedding_model}`;
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(EMBEDDING_PROVIDERS).map(([key, provider]) => (
-                    <SelectGroup key={key}>
-                      <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
-                        {provider.label}
-                        {provider.requiresApiKey && (
-                          <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
-                        )}
-                      </SelectLabel>
-                      {provider.models.map((model) => (
-                        <SelectItem key={model.value} value={model.value}>
-                          <div className="flex items-center justify-between w-full gap-4">
-                            <span>{model.label}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {model.dims}d · {model.description}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Provider Info Panel */}
-              {(() => {
-                const providerInfo = getProviderFromModel(formData.embedding_model);
-                if (!providerInfo) return null;
-                const { provider } = providerInfo;
-                return (
-                  <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                    <p className="text-sm text-muted-foreground">{provider.description}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {provider.docsUrl && (
-                        <a
-                          href={provider.docsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Documentation
-                        </a>
-                      )}
-                      {'downloadUrl' in provider && provider.downloadUrl && (
-                        <a
-                          href={provider.downloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Download
-                        </a>
-                      )}
-                      {'signupUrl' in provider && provider.signupUrl && (
-                        <a
-                          href={provider.signupUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Get API Key
-                        </a>
-                      )}
-                      {'pricingUrl' in provider && provider.pricingUrl && (
-                        <a
-                          href={provider.pricingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Pricing
-                        </a>
-                      )}
-                    </div>
-                    {provider.requiresApiKey && 'envVar' in provider && (
-                      <p className="text-xs text-muted-foreground">
-                        Set <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-[10px]">{provider.envVar}</code> in your environment.
-                      </p>
-                    )}
-                    {!provider.requiresApiKey && (
-                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                        No API key required - runs locally
-                      </p>
-                    )}
+          <CardContent>
+            <div className="grid gap-8 lg:grid-cols-2">
+              {/* Left Column: Model & Provider Settings */}
+              <div className="space-y-6">
+                {/* Embedding Model */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="embedding_model">Embedding Model</Label>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      Re-index after change
+                    </span>
                   </div>
-                );
-              })()}
-            </div>
+                  <Select
+                    value={formData.embedding_model}
+                    onValueChange={(value) => updateField('embedding_model', value)}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select model">
+                        {formData.embedding_model && (() => {
+                          const info = getProviderFromModel(formData.embedding_model);
+                          if (!info) return formData.embedding_model;
+                          const model = info.provider.models.find(m => m.value === formData.embedding_model);
+                          return `${info.provider.label} / ${model?.label || formData.embedding_model}`;
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(EMBEDDING_PROVIDERS).map(([key, provider]) => (
+                        <SelectGroup key={key}>
+                          <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
+                            {provider.label}
+                            {provider.requiresApiKey && (
+                              <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
+                            )}
+                          </SelectLabel>
+                          {provider.models.map((model) => (
+                            <SelectItem key={model.value} value={model.value}>
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>{model.label}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {model.dims}d · {model.description}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-            {/* Chunking Settings with Visual Sliders */}
-            <div className="grid gap-6 sm:grid-cols-2">
-              {/* Chunk Size */}
-              <ColorZoneSlider
-                id="chunk_size"
-                label="Chunk Size"
-                descriptionNode={
-                  <>
-                    Optimal range is <span className="text-green-600 dark:text-green-400 font-medium">500-1500</span> characters for most use cases.
-                  </>
-                }
-                value={formData.chunk_size ?? 1000}
-                onChange={(value) => updateField('chunk_size', value)}
-                min={100}
-                max={4000}
-                step={50}
-                zones={CHUNK_SIZE_ZONES}
-                unit=" chars"
-                showRuler
-                rulerConfig={{
-                  smallInterval: 100,
-                  largeInterval: 500,
-                  showLabels: true,
-                  labelValues: [100, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000],
-                }}
-              />
+                  {/* Provider Info Panel - Compact */}
+                  {(() => {
+                    const providerInfo = getProviderFromModel(formData.embedding_model);
+                    if (!providerInfo) return null;
+                    const { provider } = providerInfo;
+                    return (
+                      <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-xs">
+                        <p className="text-muted-foreground">{provider.description}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {provider.docsUrl && (
+                            <a href={provider.docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                              <ExternalLink className="h-3 w-3" /> Docs
+                            </a>
+                          )}
+                          {'signupUrl' in provider && provider.signupUrl && (
+                            <a href={provider.signupUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                              <ExternalLink className="h-3 w-3" /> Get Key
+                            </a>
+                          )}
+                        </div>
+                        {provider.requiresApiKey && 'envVar' in provider && (
+                          <p className="text-muted-foreground">
+                            Set <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">{provider.envVar}</code>
+                          </p>
+                        )}
+                        {!provider.requiresApiKey && (
+                          <p className="text-green-600 dark:text-green-400 font-medium">No API key - runs locally</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
 
-              {/* Chunk Overlap */}
-              <ColorZoneSlider
-                id="chunk_overlap"
-                label="Chunk Overlap"
-                descriptionNode={
-                  <>
-                    Optimal range is <span className="text-green-600 dark:text-green-400 font-medium">50-400</span> characters to preserve context across chunks.
-                  </>
-                }
-                value={formData.chunk_overlap ?? 200}
-                onChange={(value) => updateField('chunk_overlap', value)}
-                min={0}
-                max={1000}
-                step={50}
-                zones={CHUNK_OVERLAP_ZONES}
-                unit=" chars"
-                showRuler
-                rulerConfig={{
-                  smallInterval: 50,
-                  largeInterval: 100,
-                  showLabels: true,
-                  labelValues: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-                }}
-              />
-            </div>
+                {/* Reranker Provider */}
+                <div className="space-y-2">
+                  <Label htmlFor="reranker_provider">Reranker Provider</Label>
+                  <Select
+                    value={formData.reranker_provider}
+                    onValueChange={(value) => updateField('reranker_provider', value as Settings['reranker_provider'])}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto (Best Available)</SelectItem>
+                      <SelectItem value="jina">Jina Reranker</SelectItem>
+                      <SelectItem value="cohere">Cohere Rerank</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Auto selects the best available reranker based on configured API keys.
+                  </p>
+                </div>
 
-            {/* Overlap Warning */}
-            {formData.chunk_overlap && formData.chunk_size &&
-              formData.chunk_overlap > formData.chunk_size * 0.5 && (
-              <div className="flex items-start gap-2 rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-400">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <div>
-                  <strong>Warning:</strong> Overlap is greater than 50% of chunk size. This causes excessive
-                  redundancy and slower indexing. Consider reducing overlap or increasing chunk size.
+                {/* Evaluation LLM */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="h-4 w-4 text-primary" />
+                    <Label>Evaluation LLM</Label>
+                  </div>
+                  <Select
+                    value={formData.eval_judge_provider === 'disabled' ? 'disabled' : formData.eval_judge_model}
+                    onValueChange={(value) => {
+                      if (value === 'disabled') {
+                        updateField('eval_judge_provider', 'disabled');
+                        updateField('eval_judge_model', '');
+                      } else {
+                        const provider = getLLMProviderFromModel(value);
+                        if (provider) {
+                          updateField('eval_judge_provider', provider as Settings['eval_judge_provider']);
+                        }
+                        updateField('eval_judge_model', value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select evaluation model">
+                        {formData.eval_judge_provider === 'disabled'
+                          ? 'Disabled'
+                          : formData.eval_judge_model && formatLLMDisplayValue(formData.eval_judge_model)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="disabled">
+                        <span className="text-muted-foreground">Disabled</span>
+                      </SelectItem>
+                      {Object.entries(LLM_PROVIDERS).map(([key, provider]) => (
+                        <SelectGroup key={key}>
+                          <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
+                            {provider.label}
+                            {provider.requiresApiKey && (
+                              <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
+                            )}
+                          </SelectLabel>
+                          {provider.models.map((model) => (
+                            <SelectItem key={model.value} value={model.value}>
+                              <div className="flex items-center gap-2">
+                                <span>{model.label}</span>
+                                {model.recommended && <span className="text-amber-500">⭐</span>}
+                                <span className="text-xs text-muted-foreground ml-auto">{model.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    LLM-as-Judge for RAG quality evaluations. &quot;Disabled&quot; turns off evaluations.
+                  </p>
                 </div>
               </div>
-            )}
 
-            {/* Reranker Provider */}
-            <div className="space-y-2">
-              <Label htmlFor="reranker_provider">Reranker Provider</Label>
-              <Select
-                value={formData.reranker_provider}
-                onValueChange={(value) => updateField('reranker_provider', value as Settings['reranker_provider'])}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto (Best Available)</SelectItem>
-                  <SelectItem value="jina">Jina Reranker</SelectItem>
-                  <SelectItem value="cohere">Cohere Rerank</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Auto selects the best available reranker based on configured API keys.
-              </p>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-muted-foreground/10 pt-2" />
-
-            {/* Evaluation LLM - Single Grouped Dropdown */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <FlaskConical className="h-4 w-4 text-primary" />
-                <Label>Evaluation LLM</Label>
-              </div>
-              <Select
-                value={formData.eval_judge_provider === 'disabled' ? 'disabled' : formData.eval_judge_model}
-                onValueChange={(value) => {
-                  if (value === 'disabled') {
-                    updateField('eval_judge_provider', 'disabled');
-                    updateField('eval_judge_model', '');
-                  } else {
-                    const provider = getLLMProviderFromModel(value);
-                    if (provider) {
-                      updateField('eval_judge_provider', provider as Settings['eval_judge_provider']);
-                    }
-                    updateField('eval_judge_model', value);
+              {/* Right Column: Chunking Settings */}
+              <div className="space-y-6">
+                {/* Chunk Size */}
+                <ColorZoneSlider
+                  id="chunk_size"
+                  label="Chunk Size"
+                  descriptionNode={
+                    <>
+                      Optimal: <span className="text-green-600 dark:text-green-400 font-medium">500-1500</span> chars
+                    </>
                   }
-                }}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select evaluation model">
-                    {formData.eval_judge_provider === 'disabled'
-                      ? 'Disabled'
-                      : formData.eval_judge_model && formatLLMDisplayValue(formData.eval_judge_model)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="disabled">
-                    <span className="text-muted-foreground">Disabled</span>
-                  </SelectItem>
-                  {Object.entries(LLM_PROVIDERS).map(([key, provider]) => (
-                    <SelectGroup key={key}>
-                      <SelectLabel className={`text-xs font-bold uppercase tracking-wide px-2 py-1.5 mx-1 my-1 rounded ${provider.color}`}>
-                        {provider.label}
-                        {provider.requiresApiKey && (
-                          <span className="ml-1.5 text-[10px] font-normal normal-case opacity-70">(API key)</span>
-                        )}
-                      </SelectLabel>
-                      {provider.models.map((model) => (
-                        <SelectItem key={model.value} value={model.value}>
-                          <div className="flex items-center gap-2">
-                            <span>{model.label}</span>
-                            {model.recommended && <span className="text-amber-500">⭐</span>}
-                            <span className="text-xs text-muted-foreground ml-auto">{model.description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                LLM-as-Judge for RAG quality evaluations. Select &quot;Disabled&quot; to turn off evaluations.
-              </p>
+                  value={formData.chunk_size ?? 1000}
+                  onChange={(value) => updateField('chunk_size', value)}
+                  min={100}
+                  max={4000}
+                  step={50}
+                  zones={CHUNK_SIZE_ZONES}
+                  unit=" chars"
+                  showRuler
+                  rulerConfig={{
+                    smallInterval: 100,
+                    largeInterval: 500,
+                    showLabels: true,
+                    labelValues: [100, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000],
+                  }}
+                />
+
+                {/* Chunk Overlap */}
+                <ColorZoneSlider
+                  id="chunk_overlap"
+                  label="Chunk Overlap"
+                  descriptionNode={
+                    <>
+                      Optimal: <span className="text-green-600 dark:text-green-400 font-medium">50-400</span> chars
+                    </>
+                  }
+                  value={formData.chunk_overlap ?? 200}
+                  onChange={(value) => updateField('chunk_overlap', value)}
+                  min={0}
+                  max={1000}
+                  step={50}
+                  zones={CHUNK_OVERLAP_ZONES}
+                  unit=" chars"
+                  showRuler
+                  rulerConfig={{
+                    smallInterval: 50,
+                    largeInterval: 100,
+                    showLabels: true,
+                    labelValues: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
+                  }}
+                />
+
+                {/* Overlap Warning */}
+                {formData.chunk_overlap && formData.chunk_size &&
+                  formData.chunk_overlap > formData.chunk_size * 0.5 && (
+                  <div className="flex items-start gap-2 rounded-lg p-3 bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Warning:</strong> Overlap &gt; 50% of chunk size causes excessive redundancy.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1087,21 +1046,3 @@ export default function SettingsPage() {
   );
 }
 
-function SettingsSkeleton() {
-  return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-xl" />
-        <div className="space-y-2">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-48" />
-        </div>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <Skeleton className="h-80 rounded-2xl" />
-        <Skeleton className="h-80 rounded-2xl" />
-        <Skeleton className="h-40 rounded-2xl md:col-span-2" />
-      </div>
-    </div>
-  );
-}

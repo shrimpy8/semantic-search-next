@@ -48,7 +48,7 @@ const PIPELINE_STEPS = [
     icon: FileText,
     description: 'Upload & organize into collections',
     providers: { cloud: [], local: ['Built-in'] },
-    params: [],
+    params: ['PDF, TXT, MD, DOCX', 'Multi-file upload', '10MB max/file'],
     color: 'blue',
   },
   {
@@ -184,7 +184,7 @@ export default function HowItWorksPage() {
                     <th className="text-left py-2 pr-4 font-medium">Step</th>
                     <th className="text-left py-2 pr-4 font-medium">Cloud Providers</th>
                     <th className="text-left py-2 pr-4 font-medium">Local Options</th>
-                    <th className="text-left py-2 font-medium">Key Parameters</th>
+                    <th className="text-left py-2 font-medium">Key Parameters/Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1026,7 +1026,7 @@ export default function HowItWorksPage() {
             <AccordionContent className="pt-4 pb-6">
               <div className="space-y-4 text-sm">
                 <p>
-                  Not all search results are equally relevant. The <strong>confidence threshold</strong> (default: 30%)
+                  Not all search results are equally relevant. The <strong>confidence threshold</strong> (default: 35%)
                   separates results into two groups:
                 </p>
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -1172,7 +1172,7 @@ export default function HowItWorksPage() {
                   description="Results below this score are hidden by default. Shown separately as 'low confidence' results."
                   options={[
                     { value: '20%', description: 'Lenient - shows more results' },
-                    { value: '30%', description: 'Balanced (default)' },
+                    { value: '35%', description: 'Balanced (default)' },
                     { value: '40%+', description: 'Strict - only high-quality matches' },
                   ]}
                 />

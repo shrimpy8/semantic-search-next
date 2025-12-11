@@ -388,10 +388,11 @@ class VectorStoreManager:
             ...     k=5
             ... )
         """
+        # CRITICAL: ChromaDB requires explicit $eq operator for metadata filtering
         return self.search_similar(
             query=query,
             k=k,
-            filter={"collection_id": collection_id}
+            filter={"collection_id": {"$eq": collection_id}}
         )
 
     def search_by_documents(
@@ -418,8 +419,9 @@ class VectorStoreManager:
             ...     k=5
             ... )
         """
+        # CRITICAL: ChromaDB requires explicit $eq operator for metadata filtering
         if len(document_ids) == 1:
-            filter_dict = {"document_id": document_ids[0]}
+            filter_dict = {"document_id": {"$eq": document_ids[0]}}
         else:
             filter_dict = {"document_id": {"$in": document_ids}}
 

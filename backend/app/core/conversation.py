@@ -15,6 +15,8 @@ from typing import Any
 
 from langchain_core.documents import Document
 
+from app.prompts import prompts
+
 logger = logging.getLogger(__name__)
 
 
@@ -345,12 +347,8 @@ class ConversationManager:
         )
 
         if is_follow_up:
-            optimized = f"""Given this conversation context:
-{context}
-
-Current question: {query}
-
-Please answer the current question, using the context to understand any references."""
+            # Use externalized prompt from qa.yaml
+            optimized = prompts.get("qa", "conversation_followup", context=context, query=query)
             logger.info(f"Optimized follow-up query with {len(context)} chars of context")
             return optimized
 

@@ -126,7 +126,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
             {data.low_confidence_results.map((result, index) => (
               <div key={result.id} className="relative">
                 <div className="absolute -left-2 top-0 bottom-0 w-1 bg-amber-400 dark:bg-amber-600 rounded-full" />
-                <SearchResultCard result={result} rank={index + 1} defaultShowScores={defaultShowScores} />
+                <SearchResultCard result={result} rank={index + 1} defaultShowScores={false} />
               </div>
             ))}
           </div>
@@ -247,7 +247,12 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
       {/* High-confidence results list */}
       <div className="space-y-3">
         {data.results.map((result, index) => (
-          <SearchResultCard key={result.id} result={result} rank={index + 1} defaultShowScores={defaultShowScores} />
+          <SearchResultCard
+            key={result.id}
+            result={result}
+            rank={index + 1}
+            defaultShowScores={index < 3 && defaultShowScores}
+          />
         ))}
       </div>
 
@@ -270,7 +275,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
               <SearchResultCard
                 result={result}
                 rank={data.results.length + index + 1}
-                defaultShowScores={defaultShowScores}
+                defaultShowScores={false}
               />
             </div>
           ))}
