@@ -71,3 +71,8 @@ uploads/
 # Claude Code
 .claude/
 CLAUDE.md
+
+# Internal planning docs (local only)
+docs/IMPLEMENTATION_PROGRESS.md
+docs/OLLAMA_IMPLEMENTATION_PLAN.md
+docs/PERFORMANCE_CONSIDERATIONS.md
