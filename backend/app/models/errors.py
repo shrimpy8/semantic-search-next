@@ -37,12 +37,12 @@ class APIError(Exception):
     error_type: str = "api_error"
     details: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__init__(self.message)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert error to Stripe-like response format."""
-        error_dict = {
+        error_dict: dict[str, Any] = {
             "error": {
                 "code": self.code,
                 "message": self.message,
@@ -95,7 +95,7 @@ class NotFoundError(APIError):
     resource_type: str | None = None
     resource_id: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.resource_type and self.resource_id:
             self.details["resource_type"] = self.resource_type
             self.details["resource_id"] = self.resource_id
@@ -121,7 +121,7 @@ class DuplicateError(APIError):
     details: dict[str, Any] = field(default_factory=dict)
     existing_id: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.existing_id:
             self.details["existing_id"] = self.existing_id
         super().__post_init__()
@@ -151,7 +151,7 @@ class LimitExceededError(APIError):
     limit: int | None = None
     current: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.limit is not None:
             self.details["limit"] = self.limit
         if self.current is not None:

@@ -5,6 +5,7 @@ These models provide consistent response structures for
 list and delete operations.
 """
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, Generic, TypeVar
 
@@ -37,7 +38,7 @@ class ListResponse(Generic[T]):
     total_count: int | None = None
     next_cursor: str | None = None
 
-    def to_dict(self, item_serializer=None) -> dict[str, Any]:
+    def to_dict(self, item_serializer: Callable[[T], Any] | None = None) -> dict[str, Any]:
         """
         Convert to dictionary.
 
@@ -68,7 +69,7 @@ class ListResponse(Generic[T]):
         """Return number of items in this page."""
         return len(self.data)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[T]:
         """Iterate over items."""
         return iter(self.data)
 
@@ -145,7 +146,7 @@ class OperationResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        result = {
+        result: dict[str, Any] = {
             "success": self.success,
         }
         if self.data is not None:

@@ -127,7 +127,7 @@ class Collection:
         Returns:
             Dictionary representation
         """
-        data = {
+        data: dict[str, Any] = {
             "id": self.id,
             "name": self.name,
             "description": self.description,
