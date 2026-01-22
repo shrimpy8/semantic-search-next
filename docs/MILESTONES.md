@@ -20,6 +20,12 @@ Status key: [ ] pending, [~] in progress, [x] completed
 - [x] Optimize adjacent chunk retrieval (cache per request)
 - [ ] Optional: add production-grade rate limiting (Redis)
 
+## Phase 4 — Prompt Injection Mitigations (P2)
+- [x] Prompt-only hardening (QA + verification instruction hierarchy; guardrail externalized)
+- [ ] Retrieval content filtering (detect/flag instruction-like content)
+- [ ] Input sanitization + strict output validation
+- [ ] Source trust boundaries + UI warnings
+
 ## Environment Checks
 - [x] Docker services checked (Postgres + Chroma running)
 - [x] Ollama models listed

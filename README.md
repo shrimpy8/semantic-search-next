@@ -245,6 +245,8 @@ Run evaluations to measure search quality with configurable judge models.
 > - Local AI providers (Ollama, Jina reranker)
 > - Cloud provider setup (OpenAI, Cohere, Voyage AI)
 > - Troubleshooting guide
+>
+> **Quick Start**: See [SETUP.md](./docs/SETUP.md) for a concise, working local setup checklist.
 
 ## Local AI with Ollama (Optional)
 
@@ -407,6 +409,8 @@ semantic-search-next/
 ├── docs/
 │   ├── ARCHITECTURE.md          # Detailed system design
 │   └── INFRASTRUCTURE.md        # Setup guide for all services
+│   ├── PROMPT_INJECTION_PLAN.md # Prompt-injection mitigation plan
+│   └── SETUP.md                 # Quick-start setup checklist
 ├── backend/
 │   ├── .env.example             # Backend environment template
 │   ├── app/
