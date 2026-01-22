@@ -72,6 +72,9 @@ uploads/
 .claude/
 CLAUDE.md
 
+# Local-only details
+additional_details_donot_commit/
+
 # Internal planning docs (local only)
 docs/IMPLEMENTATION_PROGRESS.md
 docs/OLLAMA_IMPLEMENTATION_PLAN.md
