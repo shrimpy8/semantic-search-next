@@ -300,6 +300,18 @@ class HybridSearchService:
                 bm25_docs = bm25_retriever.documents
                 logger.info(f"Passing {len(bm25_docs)} docs to HybridRetriever")
 
+            # If document_ids are provided, filter BM25 docs to the requested scope
+            if document_ids and bm25_docs:
+                allowed_ids = set(document_ids)
+                before_count = len(bm25_docs)
+                bm25_docs = [
+                    doc for doc in bm25_docs
+                    if doc.metadata and doc.metadata.get("document_id") in allowed_ids
+                ]
+                logger.info(
+                    f"Filtered BM25 docs by document_ids: {before_count} -> {len(bm25_docs)}"
+                )
+
         # Create hybrid retriever
         reranker = self._get_reranker(reranker_provider) if use_reranker else None
 

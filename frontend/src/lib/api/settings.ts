@@ -94,6 +94,7 @@ export interface Settings {
   // Answer generation settings
   answer_provider: 'openai' | 'anthropic' | 'ollama';
   answer_model: string;
+  answer_style: 'concise' | 'balanced' | 'detailed';
 
   // Timestamps
   updated_at: string;
@@ -130,6 +131,10 @@ export interface SettingsUpdate {
   // Answer generation settings
   answer_provider?: 'openai' | 'anthropic' | 'ollama';
   answer_model?: string;
+  answer_style?: 'concise' | 'balanced' | 'detailed';
+
+  // Safety confirmation
+  confirm_reindex?: boolean;
 }
 
 export const settingsApi = {

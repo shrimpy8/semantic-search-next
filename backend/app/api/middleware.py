@@ -5,6 +5,7 @@ API middleware for error handling and request processing.
 import logging
 import time
 from collections import defaultdict
+from contextvars import ContextVar
 from uuid import uuid4
 
 from fastapi import Request, status
@@ -12,6 +13,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
+
+# Context variable for request ID propagation
+request_id_ctx_var: ContextVar[str] = ContextVar("request_id", default="-")
 
 # Rate limiting configuration
 RATE_LIMIT_REQUESTS = 60  # requests per window
@@ -121,6 +125,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Generate request ID
         request_id = str(uuid4())[:8]
         request.state.request_id = request_id
+        request_id_ctx_var.set(request_id)
 
         # Log request
         start_time = time.perf_counter()

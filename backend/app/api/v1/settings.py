@@ -8,7 +8,7 @@ Uses singleton pattern - there's only one settings record.
 import logging
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import SettingsRepo
 from app.api.schemas import (
@@ -50,6 +50,18 @@ async def update_settings(
     """Update settings with provided values."""
     # Only pass non-None values to the repository
     update_data = data.model_dump(exclude_none=True)
+
+    # Guard embedding model changes - requires explicit confirmation
+    if "embedding_model" in update_data:
+        current = await repo.get()
+        if update_data["embedding_model"] != current.embedding_model and not data.confirm_reindex:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Changing embedding_model requires confirm_reindex=true and a full re-index of documents.",
+            )
+
+    # confirm_reindex is not stored; remove before update
+    update_data.pop("confirm_reindex", None)
 
     if update_data:
         settings = await repo.update_settings(**update_data)

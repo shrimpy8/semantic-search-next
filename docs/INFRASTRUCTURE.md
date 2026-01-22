@@ -342,6 +342,7 @@ ollama serve
 
 ```bash
 # Embedding models
+ollama pull nomic-embed-text-v2-moe  # 957MB, 768 dims (MoE, strong retrieval)
 ollama pull nomic-embed-text      # 274MB, 768 dims
 ollama pull mxbai-embed-large     # 670MB, 1024 dims
 ollama pull all-minilm            # 46MB, 384 dims (lightweight)
@@ -358,7 +359,7 @@ ollama pull phi3                  # 2GB, Microsoft's small model
 # backend/.env
 OLLAMA_BASE_URL=http://localhost:11434
 EMBEDDING_PROVIDER=ollama
-EMBEDDING_MODEL=nomic-embed-text
+EMBEDDING_MODEL=nomic-embed-text-v2-moe
 ```
 
 #### Verifying Ollama
@@ -369,7 +370,7 @@ curl http://localhost:11434/api/tags
 
 # Test embedding
 curl http://localhost:11434/api/embeddings \
-  -d '{"model": "nomic-embed-text", "prompt": "Hello world"}'
+  -d '{"model": "nomic-embed-text-v2-moe", "prompt": "Hello world"}'
 ```
 
 #### Available Embedding Models
@@ -377,6 +378,7 @@ curl http://localhost:11434/api/embeddings \
 | Model | Size | Dimensions | Notes |
 |-------|------|------------|-------|
 | `nomic-embed-text` | 274MB | 768 | Best quality/size ratio |
+| `nomic-embed-text-v2-moe` | 957MB | 768 | Latest MoE, strong retrieval |
 | `mxbai-embed-large` | 670MB | 1024 | Higher quality |
 | `all-minilm` | 46MB | 384 | Fastest, lowest resource |
 | `snowflake-arctic-embed` | 335MB | 1024 | Good for long docs |
@@ -693,6 +695,7 @@ docker run -d --name chromadb -p 8000:8000 chromadb/chroma
 
 # 2. Start Ollama
 ollama serve &
+ollama pull nomic-embed-text-v2-moe
 ollama pull nomic-embed-text
 ollama pull llama3.2
 
@@ -701,6 +704,7 @@ cd backend
 cp .env.example .env
 # Edit .env:
 #   EMBEDDING_PROVIDER=ollama
+#   EMBEDDING_MODEL=nomic-embed-text-v2-moe
 #   EMBEDDING_MODEL=nomic-embed-text
 #   OLLAMA_BASE_URL=http://localhost:11434
 #   RERANKER_PROVIDER=jina

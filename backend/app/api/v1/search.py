@@ -45,7 +45,7 @@ def _extract_section(content: str) -> str | None:
     return None
 
 
-def _calculate_relevance_percent(final_score: float) -> int:
+def _calculate_relevance_percent(final_score: float, max_final_score: float | None = None) -> int:
     """
     Convert final_score to 0-100% relevance display value.
 
@@ -60,10 +60,77 @@ def _calculate_relevance_percent(final_score: float) -> int:
 
     # If score looks like rerank score (0-1 range), use it directly
     if final_score <= 1.0:
+        # If max_final_score is provided (non-reranked), normalize for display
+        if max_final_score and max_final_score > 0 and max_final_score <= 1.0:
+            return int((final_score / max_final_score) * 100)
         return int(final_score * 100)
     else:
         # Shouldn't happen with reranking, but cap at 100
         return 100
+
+
+def _build_answer_context(results: list[SearchResultSchema], max_sources: int = 3) -> tuple[str, list[str]]:
+    """
+    Build answer context from top results, including adjacent chunks when available.
+
+    Returns:
+        Tuple of (context_text, source_names)
+    """
+    selected = results[:max_sources]
+    if not selected:
+        return "", []
+
+    seen_blocks: set[str] = set()
+    context_blocks: list[str] = []
+    source_names = [r.document_name for r in selected]
+
+    for i, r in enumerate(selected):
+        parts: list[str] = []
+        if r.context_before:
+            parts.append(r.context_before)
+        parts.append(r.content)
+        if r.context_after:
+            parts.append(r.context_after)
+
+        combined = "\n\n".join(p for p in parts if p)
+        if combined and combined not in seen_blocks:
+            seen_blocks.add(combined)
+            context_blocks.append(f"[Source {i}] {r.document_name}\n{combined}")
+
+    return "\n\n---\n\n".join(context_blocks), source_names
+
+
+def _get_adjacent_from_chunks(
+    chunks: list,
+    chunk_index: int,
+    before: int,
+    after: int,
+) -> dict[str, list]:
+    """Compute adjacent chunks from a cached list of chunks."""
+    if not chunks:
+        return {"before": [], "after": []}
+
+    chunks_sorted = sorted(
+        chunks,
+        key=lambda c: c.metadata.get("chunk_index", 0)
+    )
+
+    index_to_chunk = {
+        c.metadata.get("chunk_index", i): c
+        for i, c in enumerate(chunks_sorted)
+    }
+
+    before_chunks = []
+    for i in range(chunk_index - before, chunk_index):
+        if i >= 0 and i in index_to_chunk:
+            before_chunks.append(index_to_chunk[i])
+
+    after_chunks = []
+    for i in range(chunk_index + 1, chunk_index + after + 1):
+        if i in index_to_chunk:
+            after_chunks.append(index_to_chunk[i])
+
+    return {"before": before_chunks, "after": after_chunks}
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -189,6 +256,12 @@ async def search(
             detail=f"Search operation failed: {str(e)}",
         )
 
+    # Determine if reranking was applied (affects confidence thresholds/display)
+    rerank_used = any(hr.rerank_score is not None for hr in hybrid_results)
+    max_final_score = None
+    if not rerank_used:
+        max_final_score = max((hr.final_score for hr in hybrid_results), default=0.0)
+
     # Convert to API response format
     results: list[SearchResultSchema] = []
 
@@ -199,6 +272,9 @@ async def search(
         max_bm25 = 1.0
     if max_semantic <= 0:
         max_semantic = 1.0
+
+    # Cache chunks per document for context expansion
+    doc_chunks_cache: dict[str, list] = {}
 
     for i, hr in enumerate(hybrid_results):
         doc = hr.document
@@ -213,8 +289,11 @@ async def search(
         # Extract section heading if present
         section = _extract_section(doc.page_content)
 
-        # Calculate relevance percentage from final_score (which is 0-1 when reranking)
-        relevance_percent = _calculate_relevance_percent(hr.final_score)
+        # Calculate relevance percentage from final_score (rerank=0-1, RRF=small values)
+        relevance_percent = _calculate_relevance_percent(
+            hr.final_score,
+            max_final_score=max_final_score if not rerank_used else None,
+        )
 
         # Normalize BM25 score to 0-1 for display (original is unbounded)
         # No artificial floor - show actual normalized score for transparency
@@ -235,8 +314,11 @@ async def search(
         context_window = db_settings.context_window_size
         if doc_id and chunk_index is not None and context_window > 0:
             try:
-                adjacent = vector_store.get_adjacent_chunks(
-                    document_id=doc_id,
+                if doc_id not in doc_chunks_cache:
+                    doc_chunks_cache[doc_id] = vector_store.get_chunks_by_document(doc_id)
+
+                adjacent = _get_adjacent_from_chunks(
+                    chunks=doc_chunks_cache.get(doc_id, []),
                     chunk_index=chunk_index,
                     before=context_window,
                     after=context_window,
@@ -282,8 +364,12 @@ async def search(
             total_chunks=total_chunks,
         ))
 
-    # Get threshold from settings
+    # Get threshold from settings (scale if reranking was not used and scores are small)
     min_threshold = db_settings.min_score_threshold
+    if not rerank_used and max_final_score and max_final_score > 0:
+        # Only scale when scores are smaller than the configured threshold
+        if max_final_score < min_threshold:
+            min_threshold = min_threshold * max_final_score
 
     # Separate high and low confidence results based on final_score threshold
     high_confidence_results: list[SearchResultSchema] = []
@@ -348,12 +434,8 @@ async def search(
             answer_style = getattr(db_settings, 'answer_style', 'balanced')
             prompt_key = f"qa_{answer_style}"  # qa_concise, qa_balanced, or qa_detailed
 
-            # Build context from top results
-            source_names = [r.document_name for r in high_confidence_results[:3]]
-            context_docs = "\n\n---\n\n".join([
-                f"[Source {i}] {r.document_name}\n{r.content}"
-                for i, r in enumerate(high_confidence_results[:3])  # Use top 3 results for context
-            ])
+            # Build context from top results (include adjacent chunks if available)
+            context_docs, source_names = _build_answer_context(high_confidence_results, max_sources=3)
 
             # Initialize QA chain with provider and prompt style from settings
             qa_chain = QAChain(
