@@ -202,7 +202,7 @@ class EmbeddingFactory:
         Pull model: ollama pull nomic-embed-text
         """
         try:
-            from langchain_ollama import OllamaEmbeddings
+            from langchain_ollama import OllamaEmbeddings  # type: ignore[import-not-found]  # noqa: I001
         except ImportError:
             raise ImportError(
                 "langchain-ollama not installed. Run: pip install langchain-ollama"
@@ -253,7 +253,7 @@ class EmbeddingFactory:
         Sign up at: https://cohere.com/
         """
         try:
-            from langchain_cohere import CohereEmbeddings
+            from langchain_cohere import CohereEmbeddings  # type: ignore[import-not-found]  # noqa: I001
         except ImportError:
             raise ImportError(
                 "langchain-cohere not installed. Run: pip install langchain-cohere"
@@ -281,7 +281,7 @@ class EmbeddingFactory:
         Sign up at: https://www.voyageai.com/
         """
         try:
-            from langchain_voyageai import VoyageAIEmbeddings
+            from langchain_voyageai import VoyageAIEmbeddings  # type: ignore[import-not-found]  # noqa: I001
         except ImportError:
             raise ImportError(
                 "langchain-voyageai not installed. Run: pip install langchain-voyageai"

@@ -187,7 +187,7 @@ class LLMFactory:
         **kwargs,
     ) -> BaseChatModel:
         """Create an Ollama LLM instance."""
-        from langchain_ollama import ChatOllama
+        from langchain_ollama import ChatOllama  # type: ignore[import-not-found]
 
         settings = get_settings()
 

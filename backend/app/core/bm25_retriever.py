@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
-from rank_bm25 import BM25Okapi
+from rank_bm25 import BM25Okapi  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 

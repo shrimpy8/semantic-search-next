@@ -17,7 +17,7 @@ from typing import Any, cast
 
 import chromadb
 from chromadb.config import Settings
-from langchain_chroma import Chroma
+from langchain_chroma import Chroma  # type: ignore[import-not-found]
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStoreRetriever
 
@@ -223,7 +223,7 @@ class VectorStoreManager:
             ...     filter={"document_id": {"$in": ["doc1", "doc2"]}}
             ... )
         """
-        search_kwargs = {"k": search_k}
+        search_kwargs: dict[str, Any] = {"k": search_k}
 
         if filter:
             search_kwargs["filter"] = filter

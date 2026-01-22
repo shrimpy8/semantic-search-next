@@ -117,7 +117,7 @@ async def get_collection(
 ) -> CollectionResponse:
     """Get a collection by ID."""
     # Use DRY helper for 404 check
-    collection = await require_collection(collection_id, repo)
+    await require_collection(collection_id, repo)
 
     # Update counts
     await repo.update_counts(collection_id)

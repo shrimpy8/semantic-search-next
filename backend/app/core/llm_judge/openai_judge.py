@@ -36,7 +36,7 @@ class OpenAIJudge(BaseLLMJudge):
         settings = get_settings()
 
         super().__init__(
-            model=model or settings.eval_default_judge_model,
+            model=model or "gpt-4o-mini",
             timeout=timeout or settings.eval_timeout_seconds,
             max_retries=max_retries or settings.eval_retry_count,
         )

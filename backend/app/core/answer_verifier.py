@@ -9,7 +9,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Any, cast
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -71,7 +71,11 @@ class AnswerVerifier:
         if not key:
             raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var or pass api_key parameter.")
 
-        self.llm = ChatOpenAI(model=model_name, temperature=temperature, api_key=key)
+        self.llm = ChatOpenAI(
+            model=model_name,
+            temperature=temperature,
+            api_key=cast(Any, key),
+        )
 
         # Load prompts from external YAML files
         claim_extraction_system = prompts.get_raw("verification", "claim_extraction_system")

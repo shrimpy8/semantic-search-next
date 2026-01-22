@@ -35,6 +35,10 @@ Goal: Reduce lint/type errors without changing runtime behavior. This work shoul
 
 ## Proposed File Batches (Active Scope)
 
+### Progress
+- ✅ Batch A completed (API surface): typing-only fixes in `backend/app/api/v1/*` plus `docs/SETUP.md` added.
+- ✅ Batch B completed (Services + DB): typing alignment in `backend/app/services/evaluation.py` and `backend/app/db/models.py`.
+
 Batch A — API surface
 - `backend/app/api/*.py`
 - `backend/app/api/v1/*.py`

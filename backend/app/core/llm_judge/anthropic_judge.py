@@ -153,7 +153,10 @@ class AnthropicJudge(BaseLLMJudge):
             temperature=0.0,  # Deterministic for evaluation
         )
 
-        content = response.content[0].text if response.content else ""
+        content = ""
+        if response.content:
+            first_block = response.content[0]
+            content = getattr(first_block, "text", "")
         if not content:
             raise JudgeResponseError("Empty response from judge")
 

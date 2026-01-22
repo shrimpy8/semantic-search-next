@@ -67,7 +67,10 @@ class JudgeFactory:
             )
 
         judge_class = cls._registry[provider]
-        judge = judge_class(model=model, **kwargs)
+        if model is None:
+            judge = judge_class(**kwargs)
+        else:
+            judge = judge_class(model=model, **kwargs)
 
         if not judge.is_available():
             raise JudgeUnavailableError(
