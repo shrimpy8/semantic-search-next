@@ -72,6 +72,7 @@ class SettingsRepository(BaseRepository[Settings]):
             "eval_judge_model",
             "answer_provider",
             "answer_model",
+            "answer_style",
         }
 
         for field, value in kwargs.items():
@@ -102,13 +103,14 @@ class SettingsRepository(BaseRepository[Settings]):
         settings.reranker_provider = "auto"
         settings.show_scores = True
         settings.results_per_page = 10
-        settings.min_score_threshold = 0.3
+        settings.min_score_threshold = 0.35
         settings.default_generate_answer = False
         settings.context_window_size = 1
         settings.eval_judge_provider = "openai"
         settings.eval_judge_model = "gpt-4o-mini"
         settings.answer_provider = "openai"
         settings.answer_model = "gpt-4o-mini"
+        settings.answer_style = "balanced"
 
         await self.session.flush()
         await self.session.refresh(settings)

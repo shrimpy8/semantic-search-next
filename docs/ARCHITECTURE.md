@@ -116,6 +116,7 @@ Text chunk (500 chars) → OpenAI API → 3072-dim vector → ChromaDB
 | Service | Model | Purpose | Dimensions |
 |---------|-------|---------|------------|
 | Embeddings | `nomic-embed-text` | Local vector embeddings | 768 |
+| Embeddings | `nomic-embed-text-v2-moe` | Local vector embeddings (MoE) | 768 |
 | LLM | `llama3.2`, `mistral` | Answer generation, Evaluation | - |
 
 ### Jina AI

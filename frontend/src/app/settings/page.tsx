@@ -62,6 +62,7 @@ const EMBEDDING_PROVIDERS = {
     requiresApiKey: false,
     color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
     models: [
+      { value: 'ollama:nomic-embed-text-v2-moe:latest', label: 'nomic-embed-text-v2-moe', dims: 768, description: 'Latest MoE, strong retrieval' },
       { value: 'ollama:nomic-embed-text:v1.5', label: 'nomic-embed-text:v1.5', dims: 768, description: 'Latest, fast' },
       { value: 'ollama:nomic-embed-text', label: 'nomic-embed-text', dims: 768, description: 'Fast, good quality' },
       { value: 'ollama:mxbai-embed-large:335m', label: 'mxbai-embed-large:335m', dims: 1024, description: 'High quality' },
@@ -216,13 +217,18 @@ export default function SettingsPage() {
         answer_provider: settings.answer_provider,
         answer_model: settings.answer_model,
         answer_style: settings.answer_style,
+        confirm_reindex: false,
       });
       setHasChanges(false);
     }
   }, [settings]);
 
   const updateField = <K extends keyof SettingsUpdate>(field: K, value: SettingsUpdate[K]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'embedding_model' ? { confirm_reindex: false } : null),
+    }));
     setHasChanges(true);
   };
 
@@ -237,6 +243,12 @@ export default function SettingsPage() {
       onSuccess: () => setHasChanges(false),
     });
   };
+
+  const embeddingModelChanged = Boolean(
+    settings?.embedding_model
+    && formData.embedding_model
+    && formData.embedding_model !== settings.embedding_model
+  );
 
   if (isLoading) {
     return (
@@ -437,7 +449,11 @@ export default function SettingsPage() {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!hasChanges || updateSettings.isPending}
+            disabled={
+              !hasChanges
+              || updateSettings.isPending
+              || (embeddingModelChanged && !formData.confirm_reindex)
+            }
             className="rounded-xl"
           >
             <Save className={`mr-2 h-4 w-4 ${updateSettings.isPending ? 'animate-spin' : ''}`} />
@@ -886,6 +902,25 @@ export default function SettingsPage() {
                       </div>
                     );
                   })()}
+
+                  {embeddingModelChanged && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 mt-0.5" />
+                        <div className="space-y-2">
+                          <p className="font-medium">Embedding model change requires re-indexing.</p>
+                          <p>Existing documents will not match the new embedding model until re-indexed.</p>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={Boolean(formData.confirm_reindex)}
+                              onCheckedChange={(value) => updateField('confirm_reindex', value)}
+                            />
+                            <span>I understand and will re-index documents</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reranker Provider */}
@@ -1045,4 +1080,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

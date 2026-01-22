@@ -27,10 +27,27 @@ settings = get_settings()
 # DEBUG=true enables DEBUG level logging for detailed troubleshooting
 # DEBUG=false (default) uses INFO level for production
 log_level = logging.DEBUG if settings.debug else logging.INFO
+from app.api.middleware import request_id_ctx_var
+
+
+class RequestIdFilter(logging.Filter):
+    """Attach request_id from context to log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id_ctx_var.get()
+        return True
+
+
 logging.basicConfig(
     level=log_level,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] %(message)s",
 )
+
+# Ensure all loggers include request_id, even those created before startup
+_root_logger = logging.getLogger()
+_root_logger.addFilter(RequestIdFilter())
+for _handler in _root_logger.handlers:
+    _handler.addFilter(RequestIdFilter())
 logger = logging.getLogger(__name__)
 
 

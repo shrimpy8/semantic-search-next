@@ -66,6 +66,48 @@ def validate_file(file: UploadFile) -> str:
     return ext
 
 
+def _build_chunks(
+    pages: list[LangchainDocument],
+    chunk_size: int,
+    chunk_overlap: int,
+    filename: str,
+    document_id: UUID,
+    collection_id: UUID,
+    collection_name: str,
+) -> list[LangchainDocument]:
+    """Split pages into chunks and apply consistent metadata."""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        add_start_index=True,
+    )
+    chunks = splitter.split_documents(pages)
+
+    # Handle small documents: if no chunks but we have content, use original pages as chunks
+    if not chunks and pages:
+        total_content = "".join(page.page_content for page in pages).strip()
+        if total_content:
+            chunks = [LangchainDocument(
+                page_content=total_content,
+                metadata=pages[0].metadata if pages else {},
+            )]
+            logger.info(f"Small document - created 1 chunk from {len(total_content)} chars")
+
+    # Apply consistent metadata
+    total_chunks = len(chunks)
+    for i, chunk in enumerate(chunks):
+        chunk.metadata.update({
+            "source": filename,
+            "document_id": str(document_id),
+            "collection_id": str(collection_id),
+            "collection_name": collection_name,
+            "chunk_index": i,
+            "total_chunks": total_chunks,
+        })
+
+    return chunks
+
+
 async def process_and_index_document(
     content: bytes,
     filename: str,
@@ -103,34 +145,16 @@ async def process_and_index_document(
             pages = loader.load()
             page_count = 1
 
-        # Split into chunks
-        splitter = RecursiveCharacterTextSplitter(
+        # Split into chunks (consistent metadata, includes total_chunks)
+        chunks = _build_chunks(
+            pages=pages,
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            add_start_index=True,
+            filename=filename,
+            document_id=document_id,
+            collection_id=collection_id,
+            collection_name=collection_name,
         )
-        chunks = splitter.split_documents(pages)
-
-        # Handle small documents: if no chunks but we have content, use original pages as chunks
-        if not chunks and pages:
-            # For very small documents, use the page content directly as a single chunk
-            total_content = "".join(page.page_content for page in pages).strip()
-            if total_content:
-                chunks = [LangchainDocument(
-                    page_content=total_content,
-                    metadata=pages[0].metadata if pages else {},
-                )]
-                logger.info(f"Small document - created 1 chunk from {len(total_content)} chars")
-
-        # Add metadata to each chunk
-        for i, chunk in enumerate(chunks):
-            chunk.metadata.update({
-                "source": filename,
-                "document_id": str(document_id),
-                "collection_id": str(collection_id),
-                "collection_name": collection_name,
-                "chunk_index": i,
-            })
 
         # Handle empty documents
         if not chunks:

@@ -616,6 +616,12 @@ class SettingsUpdate(BaseModel):
         description="Answer style: concise (brief), balanced (default), or detailed (comprehensive)"
     )
 
+    # Safety confirmation
+    confirm_reindex: bool | None = Field(
+        default=None,
+        description="Confirm reindex when changing embedding model"
+    )
+
 
 class SetupValidationItem(BaseModel):
     """Individual validation check result."""

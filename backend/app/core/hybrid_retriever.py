@@ -206,7 +206,8 @@ class HybridRetriever:
         """
         Generate a unique identifier for a document.
 
-        Uses content hash for deduplication.
+        Prefer stable metadata identifiers for deduplication.
+        Falls back to content hash if metadata is missing.
 
         Args:
             doc: Document to identify
@@ -214,6 +215,12 @@ class HybridRetriever:
         Returns:
             Unique document identifier
         """
+        metadata = doc.metadata or {}
+        document_id = metadata.get("document_id")
+        chunk_index = metadata.get("chunk_index")
+        if document_id is not None and chunk_index is not None:
+            return f"{document_id}:{chunk_index}"
+
         return str(hash(doc.page_content))
 
     def retrieve(
@@ -277,14 +284,20 @@ class HybridRetriever:
         k: int
     ) -> list[HybridResult]:
         """Retrieve using semantic search only."""
-        docs = self.semantic_retriever.invoke(query)[:k]
+        docs_with_scores = self._semantic_retrieve_with_scores(query, k)
+        if docs_with_scores is None:
+            docs = self.semantic_retriever.invoke(query)[:k]
+            docs_with_scores = [
+                (doc, 1.0 / (i + 1))
+                for i, doc in enumerate(docs)
+            ]
 
         results = []
-        for i, doc in enumerate(docs):
+        for doc, score in docs_with_scores:
             results.append(HybridResult(
                 document=doc,
-                final_score=1.0 / (i + 1),  # Rank-based score
-                semantic_score=1.0 / (i + 1),
+                final_score=score,
+                semantic_score=score,
                 retrieval_method="semantic"
             ))
 
@@ -321,11 +334,15 @@ class HybridRetriever:
     ) -> list[HybridResult]:
         """Retrieve using hybrid BM25 + semantic search."""
         # Get semantic results
-        semantic_docs = self.semantic_retriever.invoke(query)[:k]
-        semantic_results = [
-            (doc, 1.0 / (i + 1))  # Rank-based score
-            for i, doc in enumerate(semantic_docs)
-        ]
+        docs_with_scores = self._semantic_retrieve_with_scores(query, k)
+        if docs_with_scores is None:
+            semantic_docs = self.semantic_retriever.invoke(query)[:k]
+            semantic_results = [
+                (doc, 1.0 / (i + 1))  # Rank-based score
+                for i, doc in enumerate(semantic_docs)
+            ]
+        else:
+            semantic_results = docs_with_scores
 
         # Get BM25 results if indexed
         if self.bm25_retriever.is_indexed():
@@ -340,6 +357,36 @@ class HybridRetriever:
             bm25_results,
             alpha
         )
+
+    def _semantic_retrieve_with_scores(
+        self,
+        query: str,
+        k: int
+    ) -> list[tuple[Document, float]] | None:
+        """
+        Retrieve semantic results with relevance scores if supported.
+
+        Returns None if the underlying vector store does not support scores.
+        """
+        vectorstore = getattr(self.semantic_retriever, "vectorstore", None)
+        search_kwargs = getattr(self.semantic_retriever, "search_kwargs", {}) or {}
+
+        if not vectorstore:
+            return None
+
+        if hasattr(vectorstore, "similarity_search_with_relevance_scores"):
+            try:
+                # Use retriever search kwargs (filters, etc.) but override k
+                results = vectorstore.similarity_search_with_relevance_scores(
+                    query,
+                    k=k,
+                    **{k: v for k, v in search_kwargs.items() if k != "k"},
+                )
+                return results
+            except Exception as e:
+                logger.warning(f"Semantic search with scores failed, falling back to rank scores: {e}")
+
+        return None
 
     def _apply_reranking(
         self,

@@ -37,6 +37,7 @@ EMBEDDING_PROVIDERS = {
     },
     "ollama": {
         "models": {
+            "nomic-embed-text-v2-moe": {"dims": 768, "description": "Latest MoE, strong retrieval"},
             "nomic-embed-text": {"dims": 768, "description": "Local, fast, good quality"},
             "nomic-embed-text:v1.5": {"dims": 768, "description": "Latest version"},
             "mxbai-embed-large": {"dims": 1024, "description": "High quality local"},

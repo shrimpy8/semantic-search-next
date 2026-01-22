@@ -266,7 +266,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 ```bash
 # Embedding model (choose one)
-ollama pull nomic-embed-text      # Fast, good quality (recommended)
+ollama pull nomic-embed-text-v2-moe  # Latest MoE, strong retrieval (recommended)
+ollama pull nomic-embed-text      # Fast, good quality
 ollama pull mxbai-embed-large     # Higher quality, slower
 
 # LLM for answers & evaluation (choose one)
@@ -285,7 +286,7 @@ ollama serve  # Runs on http://localhost:11434
 
 1. Start the app and go to **Settings** (`/settings`)
 2. Configure Ollama models:
-   - **Embedding Model**: `ollama:nomic-embed-text`
+   - **Embedding Model**: `ollama:nomic-embed-text-v2-moe:latest` (or `ollama:nomic-embed-text`)
    - **Answer Provider**: `ollama` → Model: `llama3.2`
    - **Eval Provider**: `ollama` → Model: `llama3.1:8b`
 
