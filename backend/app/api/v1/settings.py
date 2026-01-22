@@ -6,6 +6,7 @@ Uses singleton pattern - there's only one settings record.
 """
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -17,6 +18,7 @@ from app.api.schemas import (
     SetupValidationItem,
     SetupValidationResponse,
 )
+from app.config import Settings
 from app.config import get_settings as get_app_config
 from app.core.embeddings import get_available_providers
 
@@ -273,9 +275,9 @@ def _get_embedding_provider(model: str) -> str:
     return "openai"
 
 
-def _check_provider_api_key(provider: str, settings) -> bool:
+def _check_provider_api_key(provider: str, settings: Settings) -> bool:
     """Check if the required API key is configured for a provider."""
-    provider_checks = {
+    provider_checks: dict[str, Callable[[], bool]] = {
         "openai": settings.is_openai_available,
         "anthropic": settings.is_anthropic_available,
         "cohere": settings.is_cohere_available,
