@@ -38,6 +38,12 @@ Goal: Reduce lint/type errors without changing runtime behavior. This work shoul
 ### Progress
 - ✅ Batch A completed (API surface): typing-only fixes in `backend/app/api/v1/*` plus `docs/SETUP.md` added.
 - ✅ Batch B completed (Services + DB): typing alignment in `backend/app/services/evaluation.py` and `backend/app/db/models.py`.
+- ✅ Batch C completed (Core runtime dependencies): typing-only fixes in `backend/app/core/*` (retriever, reranker, QA chain, embeddings, vector store, LLM factory, answer verifier).
+- ✅ Active mypy issues (non-legacy) resolved: `backend/app/services/retrieval.py` + `backend/app/core/llm_judge/*` + prompt/yaml and provider import suppressions.
+
+### Latest Checks
+- `ruff check backend/app` → clean
+- Targeted `mypy` for active core + judge + retrieval → clean
 
 Batch A — API surface
 - `backend/app/api/*.py`
