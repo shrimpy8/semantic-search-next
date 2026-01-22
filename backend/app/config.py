@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     debug: bool = False
     api_prefix: str = "/api/v1"
 
+    # Feature Flags (Safety Controls)
+    # Set to False to disable injection detection (rollback)
+    enable_injection_detection: bool = True
+
     # ==========================================================================
     # API Keys (Secrets - NEVER expose in UI)
     # ==========================================================================
