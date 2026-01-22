@@ -1,4 +1,6 @@
 """
+LEGACY: Not used by the current FastAPI app. Kept for reference only.
+
 JSON file storage layer with atomic writes.
 
 Provides simple persistent storage for collections and documents

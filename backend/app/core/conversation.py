@@ -1,4 +1,6 @@
 """
+LEGACY: Not used by the current FastAPI app. Kept for reference only.
+
 Conversation History Module
 
 Manages session-based conversation storage with local JSON persistence.

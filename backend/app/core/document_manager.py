@@ -1,4 +1,6 @@
 """
+LEGACY: Not used by the current FastAPI app. Kept for reference only.
+
 Document Manager API.
 
 Stripe-like API for managing documents within collections. Handles file

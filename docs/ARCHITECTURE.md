@@ -4,6 +4,13 @@
 
 This is a production-grade semantic search system implementing **hybrid retrieval** (BM25 + semantic search) with optional **cross-encoder reranking** for maximum relevance.
 
+## Legacy Modules (Not Wired in Current App)
+
+The following modules remain in the codebase for reference only and are not used by the current FastAPI app:
+- JSON storage + managers: `core/storage.py`, `core/document_manager.py`, `core/collection_manager.py`, `core/search_manager.py`
+- Conversation history: `core/conversation.py`
+- A/B testing: `core/ab_testing.py`
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              CLIENT LAYER                                   │

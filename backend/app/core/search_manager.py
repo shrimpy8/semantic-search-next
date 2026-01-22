@@ -1,4 +1,6 @@
 """
+LEGACY: Not used by the current FastAPI app. Kept for reference only.
+
 Search Manager API.
 
 Stripe-like API for unified search across collections and documents.
