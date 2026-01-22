@@ -203,7 +203,7 @@ class EvaluationService:
             )
 
         return await self.evaluate_single(
-            query=search_query.query,
+            query=search_query.query_text,
             answer=search_query.generated_answer,
             chunks=search_query.retrieved_chunks,
             ground_truth_id=ground_truth_id,
