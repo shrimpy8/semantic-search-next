@@ -1,4 +1,6 @@
 """
+LEGACY: Not used by the current FastAPI app. Kept for reference only.
+
 A/B Testing Analytics Module
 
 Provides comprehensive A/B testing framework for comparing retrieval methods.

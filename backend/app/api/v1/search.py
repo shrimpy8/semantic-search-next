@@ -7,7 +7,6 @@ Provides semantic search across collections with hybrid retrieval.
 import logging
 import re
 import time
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -133,35 +132,6 @@ def _get_adjacent_from_chunks(
     return {"before": before_chunks, "after": after_chunks}
 
 router = APIRouter(prefix="/search", tags=["search"])
-
-
-def _build_chromadb_filter(
-    collection_id: UUID | None,
-    document_ids: list[UUID] | None,
-) -> dict[str, Any] | None:
-    """
-    Build ChromaDB filter from search request parameters.
-
-    CRITICAL: Use explicit $eq operators for ChromaDB metadata filtering.
-    Simple equality doesn't work - must use {"field": {"$eq": value}}.
-    """
-    conditions = []
-
-    if collection_id:
-        conditions.append({"collection_id": {"$eq": str(collection_id)}})
-
-    if document_ids:
-        if len(document_ids) == 1:
-            conditions.append({"document_id": {"$eq": str(document_ids[0])}})
-        else:
-            conditions.append({"document_id": {"$in": [str(d) for d in document_ids]}})
-
-    if not conditions:
-        return None
-    elif len(conditions) == 1:
-        return conditions[0]
-    else:
-        return {"$and": conditions}
 
 
 # Preset configurations for different retrieval modes

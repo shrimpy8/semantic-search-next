@@ -57,32 +57,6 @@ def __getattr__(name):
         )
         return locals()[name]
 
-    # Conversation
-    if name in ('ConversationManager', 'ConversationSession', 'ConversationMessage', 'QueryRecord'):
-        from .conversation import (
-            ConversationManager,
-            ConversationMessage,
-            ConversationSession,
-            QueryRecord,
-        )
-        return locals()[name]
-
-    # A/B Testing
-    if name in ('ABTestingManager', 'ABTestExperiment', 'ABTestResult', 'TestVariant', 'RetrievalMetrics'):
-        from .ab_testing import (
-            ABTestExperiment,
-            ABTestingManager,
-            ABTestResult,
-            RetrievalMetrics,
-            TestVariant,
-        )
-        return locals()[name]
-
-    # Storage (new in Stage 1)
-    if name == 'JSONStorage':
-        from .storage import JSONStorage
-        return JSONStorage
-
     raise AttributeError(f"module 'core' has no attribute '{name}'")
 
 __all__ = [
@@ -104,17 +78,4 @@ __all__ = [
     'HybridResult',
     'RetrievalMethod',
     'create_hybrid_retriever',
-    # Conversation History
-    'ConversationManager',
-    'ConversationSession',
-    'ConversationMessage',
-    'QueryRecord',
-    # A/B Testing
-    'ABTestingManager',
-    'ABTestExperiment',
-    'ABTestResult',
-    'TestVariant',
-    'RetrievalMetrics',
-    # Storage (Stage 1)
-    'JSONStorage',
 ]
