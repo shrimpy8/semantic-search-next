@@ -6,6 +6,7 @@ Stripe-like API design patterns.
 """
 
 import logging
+from typing import Protocol, cast
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -29,6 +30,9 @@ from app.services.retrieval import VectorStoreService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/collections", tags=["collections"])
+
+class _VectorStoreProtocol(Protocol):
+    def delete_by_collection_id(self, collection_id: str) -> int: ...
 
 
 @router.post(
@@ -117,9 +121,14 @@ async def get_collection(
 
     # Update counts
     await repo.update_counts(collection_id)
-    collection = await repo.get_by_id(collection_id)
+    collection_refreshed = await repo.get_by_id(collection_id)
+    if collection_refreshed is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Collection '{collection_id}' not found",
+        )
 
-    return CollectionResponse.from_model(collection)
+    return CollectionResponse.from_model(collection_refreshed)
 
 
 @router.patch(
@@ -197,7 +206,8 @@ async def delete_collection(
     # Delete chunks from ChromaDB SECOND (after DB commit succeeds)
     # If this fails, we log but don't fail - orphaned vectors are acceptable
     try:
-        chunks_deleted = vector_store.delete_by_collection_id(str(collection_id))
+        vector_store_typed = cast(_VectorStoreProtocol, vector_store)
+        chunks_deleted = vector_store_typed.delete_by_collection_id(str(collection_id))
         logger.info(f"Deleted {chunks_deleted} chunks from vector store for collection: {collection_id}")
     except Exception as e:
         # Log but don't fail - DB record is already deleted

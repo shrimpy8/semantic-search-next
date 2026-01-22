@@ -8,6 +8,7 @@ import hashlib
 import logging
 import os
 import tempfile
+from typing import Protocol, cast
 from uuid import UUID
 
 from fastapi import (
@@ -46,6 +47,12 @@ router = APIRouter(tags=["documents"])
 # Allowed file types
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+class _VectorStoreProtocol(Protocol):
+    def add_documents(self, documents: list[LangchainDocument]) -> None: ...
+    def get_chunks_by_document(self, document_id: str) -> list[LangchainDocument]: ...
+    def delete_by_document_id(self, document_id: str) -> int: ...
 
 
 def validate_file(file: UploadFile) -> str:
@@ -136,13 +143,11 @@ async def process_and_index_document(
 
         # Load document based on type
         if extension == ".pdf":
-            loader = PyPDFLoader(temp_path)
-            pages = loader.load()
+            pages = PyPDFLoader(temp_path).load()
             page_count = len(pages)
         else:
             # .txt or .md
-            loader = TextLoader(temp_path)
-            pages = loader.load()
+            pages = TextLoader(temp_path).load()
             page_count = 1
 
         # Split into chunks (consistent metadata, includes total_chunks)
@@ -167,7 +172,8 @@ async def process_and_index_document(
             return 0
 
         # Index into ChromaDB
-        vector_store.add_documents(chunks)
+        vector_store_typed = cast(_VectorStoreProtocol, vector_store)
+        vector_store_typed.add_documents(chunks)
         logger.info(f"Indexed {len(chunks)} chunks for document {document_id}")
 
         # Update document record with counts
@@ -345,7 +351,9 @@ async def upload_document(
             # Document status already set to error in process_and_index_document
 
         # Refresh document to get updated status
-        document = await document_repo.get_by_id(document.id)
+        document_refreshed = await document_repo.get_by_id(document.id)
+        if document_refreshed is not None:
+            document = document_refreshed
 
         return DocumentResponse.from_model(document)
 
@@ -423,7 +431,8 @@ async def get_document_content(
     document = await require_document(document_id, document_repo)
 
     # Get chunks from vector store
-    langchain_chunks = vector_store.get_chunks_by_document(str(document_id))
+    vector_store_typed = cast(_VectorStoreProtocol, vector_store)
+    langchain_chunks = vector_store_typed.get_chunks_by_document(str(document_id))
 
     # Sort chunks by chunk_index
     sorted_chunks = sorted(
@@ -478,7 +487,8 @@ async def delete_document(
 
     # Delete chunks from ChromaDB
     try:
-        deleted_chunks = vector_store.delete_by_document_id(str(document_id))
+        vector_store_typed = cast(_VectorStoreProtocol, vector_store)
+        deleted_chunks = vector_store_typed.delete_by_document_id(str(document_id))
         logger.info(f"Deleted {deleted_chunks} chunks from ChromaDB for document {document_id}")
     except Exception as e:
         logger.warning(f"Failed to delete chunks from ChromaDB: {e}")
