@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, select
@@ -52,7 +53,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         )
 
         # Build base query
-        conditions = []
+        conditions: list[Any] = []
 
         if collection_id:
             conditions.append(SearchQuery.collection_id == collection_id)
@@ -90,7 +91,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         self,
         collection_id: UUID | None = None,
         days: int = 30,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Get aggregated search statistics.
 
@@ -105,7 +106,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
 
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-        conditions = [SearchQuery.created_at >= cutoff_date]
+        conditions: list[Any] = [SearchQuery.created_at >= cutoff_date]
         if collection_id:
             conditions.append(SearchQuery.collection_id == collection_id)
 
@@ -149,7 +150,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         zero_result = await self.session.execute(zero_results_stmt)
         zero_results_count = zero_result.scalar() or 0
 
-        stats = {
+        stats: dict[str, Any] = {
             "total_searches": total_searches,
             "avg_latency_ms": avg_latency_ms,
             "success_rate": round(success_rate, 1),
@@ -168,7 +169,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         collection_id: UUID | None = None,
         days: int = 30,
         granularity: str = "day",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         Get time-series search trends.
 
@@ -184,7 +185,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
 
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-        conditions = [SearchQuery.created_at >= cutoff_date]
+        conditions: list[Any] = [SearchQuery.created_at >= cutoff_date]
         if collection_id:
             conditions.append(SearchQuery.collection_id == collection_id)
 
@@ -210,7 +211,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
 
         result = await self.session.execute(stmt)
 
-        trends = []
+        trends: list[dict[str, Any]] = []
         for row in result.all():
             trends.append({
                 "period": row.period.isoformat() if row.period else None,
@@ -227,7 +228,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         limit: int = 10,
         collection_id: UUID | None = None,
         days: int = 30,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         Get most frequent search queries.
 
@@ -243,7 +244,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
 
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-        conditions = [SearchQuery.created_at >= cutoff_date]
+        conditions: list[Any] = [SearchQuery.created_at >= cutoff_date]
         if collection_id:
             conditions.append(SearchQuery.collection_id == collection_id)
 
@@ -262,7 +263,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
 
         result = await self.session.execute(stmt)
 
-        top_queries = []
+        top_queries: list[dict[str, Any]] = []
         for row in result.all():
             top_queries.append({
                 "query": row.query_text[:100],  # Truncate long queries

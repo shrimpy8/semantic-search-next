@@ -1,9 +1,11 @@
 """Document repository for database operations."""
 
 from collections.abc import Sequence
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Document
@@ -71,9 +73,9 @@ class DocumentRepository(BaseRepository[Document]):
     async def delete_by_collection(self, collection_id: UUID) -> int:
         """Delete all documents in a collection. Returns count deleted."""
         stmt = delete(Document).where(Document.collection_id == collection_id)
-        result = await self.session.execute(stmt)
+        result = cast(CursorResult[Any], await self.session.execute(stmt))
         await self.session.flush()
-        return result.rowcount
+        return result.rowcount or 0
 
     async def update_status(
         self,

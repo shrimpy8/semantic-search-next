@@ -1,10 +1,11 @@
 """Base repository with common CRUD operations."""
 
 from collections.abc import Sequence
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import Base
@@ -65,13 +66,13 @@ class BaseRepository(Generic[ModelType]):
 
     async def delete_by_id(self, id: UUID) -> bool:
         """Delete a record by ID. Returns True if deleted."""
-        stmt = delete(self.model).where(self.model.id == id)
-        result = await self.session.execute(stmt)
+        stmt = delete(self.model).where(cast(Any, self.model).id == id)
+        result = cast(CursorResult[Any], await self.session.execute(stmt))
         await self.session.flush()
-        return result.rowcount > 0
+        return (result.rowcount or 0) > 0
 
     async def exists(self, id: UUID) -> bool:
         """Check if a record exists."""
-        stmt = select(func.count()).where(self.model.id == id)
+        stmt = select(func.count()).where(cast(Any, self.model).id == id)
         result = await self.session.execute(stmt)
         return (result.scalar() or 0) > 0
