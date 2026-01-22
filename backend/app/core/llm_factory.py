@@ -5,7 +5,7 @@ providers (OpenAI, Anthropic, Ollama) for answer generation.
 """
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -143,7 +143,7 @@ class LLMFactory:
         llm = ChatOpenAI(
             model=model,
             temperature=temperature,
-            api_key=settings.openai_api_key,
+            api_key=cast(Any, settings.openai_api_key),
             **kwargs,
         )
 
@@ -168,10 +168,11 @@ class LLMFactory:
                 "ANTHROPIC_API_KEY not configured",
             )
 
-        llm = ChatAnthropic(
+        chat_anthropic = cast(Any, ChatAnthropic)
+        llm = chat_anthropic(
             model=model,
             temperature=temperature,
-            api_key=settings.anthropic_api_key,
+            api_key=cast(Any, settings.anthropic_api_key),
             **kwargs,
         )
 

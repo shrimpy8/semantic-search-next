@@ -79,8 +79,8 @@ class HybridRetriever:
     def __init__(
         self,
         semantic_retriever: VectorStoreRetriever,
-        documents: list[Document] = None,
-        reranker: BaseReranker = None,
+        documents: list[Document] | None = None,
+        reranker: BaseReranker | None = None,
         alpha: float = 0.5,
         rrf_k: int = 60,
         bm25_k1: float = 1.5,
@@ -141,7 +141,7 @@ class HybridRetriever:
         self,
         semantic_results: list[tuple[Document, float]],
         bm25_results: list[BM25Result],
-        alpha: float = None
+        alpha: float | None = None
     ) -> list[HybridResult]:
         """
         Combine results using Reciprocal Rank Fusion (RRF).
@@ -228,9 +228,9 @@ class HybridRetriever:
         query: str,
         k: int = 5,
         method: RetrievalMethod = RetrievalMethod.HYBRID,
-        alpha: float = None,
+        alpha: float | None = None,
         use_reranker: bool = True,
-        fetch_k: int = None
+        fetch_k: int | None = None
     ) -> list[HybridResult]:
         """
         Retrieve relevant documents using specified method.

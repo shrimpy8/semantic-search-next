@@ -13,6 +13,7 @@ Supports multiple embedding providers via EmbeddingFactory:
 """
 
 import logging
+from typing import Any, cast
 
 import chromadb
 from chromadb.config import Settings
@@ -100,7 +101,7 @@ class VectorStoreManager:
         self.use_docker = use_docker
         self.chroma_host = chroma_host
         self.chroma_port = chroma_port
-        self._chroma_client = None
+        self._chroma_client: Any | None = None
 
         # Initialize embedding model via factory
         # For OpenAI, pass the API key; for Ollama, pass the base URL
@@ -143,11 +144,12 @@ class VectorStoreManager:
                     )
                 )
                 # Test connection
-                self._chroma_client.heartbeat()
+                client = cast(Any, self._chroma_client)
+                client.heartbeat()
                 logger.info("Successfully connected to ChromaDB server")
 
                 return Chroma(
-                    client=self._chroma_client,
+                    client=client,
                     collection_name=self.collection_name,
                     embedding_function=self.embedding_model
                 )
@@ -246,7 +248,7 @@ class VectorStoreManager:
             >>> print(f"Database contains {count} chunks")
         """
         try:
-            count = self.vector_store._collection.count()
+            count = int(self.vector_store._collection.count())
             logger.debug(f"Collection count: {count}")
             return count
         except Exception as e:
@@ -421,7 +423,7 @@ class VectorStoreManager:
         """
         # CRITICAL: ChromaDB requires explicit $eq operator for metadata filtering
         if len(document_ids) == 1:
-            filter_dict = {"document_id": {"$eq": document_ids[0]}}
+            filter_dict: dict[str, Any] = {"document_id": {"$eq": document_ids[0]}}
         else:
             filter_dict = {"document_id": {"$in": document_ids}}
 
