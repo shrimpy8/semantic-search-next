@@ -1,6 +1,10 @@
 # Evaluation Prompts for LLM-as-Judge
 # These prompts are used to evaluate retrieval and answer quality
 
+json_guardrail: |
+  IMPORTANT: Respond with ONLY a valid JSON object.
+  Do not include any explanatory text before or after the JSON.
+
 retrieval_evaluation:
   system: |
     You are an expert evaluator assessing the quality of retrieved text chunks for a search query.

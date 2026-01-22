@@ -193,12 +193,9 @@ class OllamaJudge(BaseLLMJudge):
             JudgeUnavailableError: If Ollama server is not reachable
             JudgeResponseError: If response is not valid JSON
         """
-        # Add JSON instruction to system prompt
-        enhanced_system = (
-            f"{system_prompt}\n\n"
-            "IMPORTANT: Respond with ONLY a valid JSON object. "
-            "Do not include any explanatory text before or after the JSON."
-        )
+        # Add JSON instruction to system prompt (externalized in evaluation.yaml)
+        json_guardrail = self._prompts.get("json_guardrail", "")
+        enhanced_system = f"{system_prompt}\n\n{json_guardrail}"
 
         payload = {
             "model": self.model,
