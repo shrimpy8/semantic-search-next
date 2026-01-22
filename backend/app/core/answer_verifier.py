@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from typing import Any, cast
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -55,7 +56,7 @@ class AnswerVerifier:
         self,
         model_name: str = "gpt-4o-mini",
         temperature: float = 0.0,
-        api_key: str = None,
+        api_key: str | None = None,
     ):
         """
         Initialize the answer verifier.
@@ -70,7 +71,11 @@ class AnswerVerifier:
         if not key:
             raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var or pass api_key parameter.")
 
-        self.llm = ChatOpenAI(model=model_name, temperature=temperature, api_key=key)
+        self.llm = ChatOpenAI(
+            model=model_name,
+            temperature=temperature,
+            api_key=cast(Any, key),
+        )
 
         # Load prompts from external YAML files
         claim_extraction_system = prompts.get_raw("verification", "claim_extraction_system")
@@ -93,7 +98,7 @@ class AnswerVerifier:
         try:
             prompt = self.claim_prompt.invoke({"answer": answer})
             response = self.llm.invoke(prompt)
-            content = response.content.strip()
+            content = cast(str, response.content).strip()
 
             if content == "NO_CLAIMS":
                 return []
@@ -134,7 +139,7 @@ class AnswerVerifier:
                 "claims": claims_text,
             })
             response = self.llm.invoke(prompt)
-            content = response.content.strip()
+            content = cast(str, response.content).strip()
 
             # Parse JSON response
             import json

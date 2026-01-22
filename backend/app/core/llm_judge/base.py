@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ class BaseLLMJudge(ABC):
     using an LLM as a judge.
     """
 
-    def __init__(self, model: str, timeout: int = 30, max_retries: int = 2):
+    def __init__(self, model: str | None = None, timeout: int = 30, max_retries: int = 2):
         """Initialize the judge.
 
         Args:
@@ -115,7 +115,7 @@ class BaseLLMJudge(ABC):
             timeout: Request timeout in seconds
             max_retries: Maximum retry attempts on failure
         """
-        self.model = model
+        self.model = model or ""
         self.timeout = timeout
         self.max_retries = max_retries
 

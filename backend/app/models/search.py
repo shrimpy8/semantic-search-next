@@ -146,7 +146,7 @@ class SearchRequest:
         Returns:
             Filter dict for ChromaDB or None if no scoping
         """
-        conditions = []
+        conditions: list[dict[str, Any]] = []
 
         if self.collection_id:
             conditions.append({"collection_id": self.collection_id})
@@ -256,7 +256,7 @@ class SearchResponse:
     total_results: int = 0
     search_time_ms: float = 0.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.total_results == 0:
             self.total_results = len(self.results)
 

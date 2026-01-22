@@ -5,12 +5,15 @@ API middleware for error handling and request processing.
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from uuid import uuid4
 
-from fastapi import Request, status
+from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     For production, consider Redis-based rate limiting for distributed systems.
     """
 
-    def __init__(self, app, requests_per_window: int = RATE_LIMIT_REQUESTS, window_seconds: int = RATE_LIMIT_WINDOW):
+    def __init__(self, app: ASGIApp, requests_per_window: int = RATE_LIMIT_REQUESTS, window_seconds: int = RATE_LIMIT_WINDOW):
         super().__init__(app)
         self.requests_per_window = requests_per_window
         self.window_seconds = window_seconds
@@ -58,7 +61,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._clean_old_requests(ip, current_time)
         return len(self._request_counts[ip]) >= limit
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Skip rate limiting for health checks
         if request.url.path.startswith("/api/v1/health"):
             return await call_next(request)
@@ -121,7 +124,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware for logging requests and adding request IDs."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Generate request ID
         request_id = str(uuid4())[:8]
         request.state.request_id = request_id
@@ -148,7 +151,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-async def validation_exception_handler(request: Request, exc):
+async def validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle Pydantic validation errors."""
     from fastapi.exceptions import RequestValidationError
 
@@ -182,10 +185,8 @@ async def validation_exception_handler(request: Request, exc):
     )
 
 
-async def http_exception_handler(request: Request, exc):
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle HTTP exceptions."""
-    from fastapi import HTTPException
-
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
@@ -208,7 +209,7 @@ async def http_exception_handler(request: Request, exc):
     )
 
 
-async def generic_exception_handler(request: Request, exc: Exception):
+async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
     logger.exception(f"Unhandled exception: {exc}")
 
@@ -223,7 +224,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-async def api_error_handler(request: Request, exc):
+async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle custom API errors (ValidationError, NotFoundError, etc.)."""
     from app.models.errors import APIError
 

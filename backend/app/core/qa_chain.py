@@ -6,6 +6,7 @@ Handles retrieval-augmented generation (RAG) for answering questions based on do
 
 import logging
 from collections.abc import Generator
+from typing import cast
 
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
@@ -52,8 +53,8 @@ class QAChain:
         provider: str = "openai",
         model_name: str | None = None,
         temperature: float = 0.0,
-        retriever: VectorStoreRetriever = None,
-        system_prompt: str = None,
+        retriever: VectorStoreRetriever | None = None,
+        system_prompt: str | None = None,
         prompt_key: str = "qa_system",
     ):
         """
@@ -168,7 +169,7 @@ class QAChain:
 
         logger.info("Generating answer (non-streaming)...")
         response = self.llm_model.invoke(final_prompt)
-        answer = response.content
+        answer = cast(str, response.content)
 
         logger.info(f"Answer generated: {len(answer)} characters")
         return answer
@@ -199,7 +200,7 @@ class QAChain:
 
         # Stream response
         for chunk in self.llm_model.stream(final_prompt):
-            yield chunk.content
+            yield cast(str, chunk.content)
 
     def answer_question(
         self,

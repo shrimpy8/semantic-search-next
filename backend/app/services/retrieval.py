@@ -20,6 +20,7 @@ from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends
+from uuid import UUID
 
 from app.config import Settings, get_settings
 from app.core.bm25_retriever import BM25Retriever
@@ -217,7 +218,7 @@ class HybridSearchService:
 
         return self._bm25_indices[cache_key]
 
-    def invalidate_bm25_cache(self, collection_id: str = None):
+    def invalidate_bm25_cache(self, collection_id: str | None = None):
         """Invalidate BM25 cache for a collection or all collections."""
         if collection_id:
             self._bm25_indices.pop(collection_id, None)
@@ -232,7 +233,7 @@ class HybridSearchService:
         self,
         query: str,
         collection_id: str | None = None,
-        document_ids: list[str] | None = None,
+        document_ids: list[UUID | str] | None = None,
         k: int = 5,
         method: str = "hybrid",
         alpha: float = 0.5,

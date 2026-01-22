@@ -19,6 +19,7 @@ Examples:
 
 import logging
 import os
+from typing import Any, cast
 
 from langchain_core.embeddings import Embeddings
 
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # Provider configurations with model info
-EMBEDDING_PROVIDERS = {
+EMBEDDING_PROVIDERS: dict[str, dict[str, Any]] = {
     "openai": {
         "models": {
             "text-embedding-3-large": {"dims": 3072, "description": "Best quality"},
@@ -187,7 +188,7 @@ class EmbeddingFactory:
             raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var.")
 
         logger.info(f"Initializing OpenAI embeddings: {model_name}")
-        return OpenAIEmbeddings(model=model_name, api_key=key)
+        return OpenAIEmbeddings(model=model_name, api_key=cast(Any, key))
 
     @staticmethod
     def _create_ollama(model_name: str, base_url: str | None = None) -> Embeddings:
@@ -201,7 +202,7 @@ class EmbeddingFactory:
         Pull model: ollama pull nomic-embed-text
         """
         try:
-            from langchain_ollama import OllamaEmbeddings
+            from langchain_ollama import OllamaEmbeddings  # type: ignore[import-not-found]  # noqa: I001
         except ImportError:
             raise ImportError(
                 "langchain-ollama not installed. Run: pip install langchain-ollama"
@@ -238,9 +239,10 @@ class EmbeddingFactory:
             )
 
         logger.info(f"Initializing Jina embeddings: {model_name}")
-        return JinaEmbeddings(
+        jina_embeddings = cast(Any, JinaEmbeddings)
+        return jina_embeddings(
             model_name=model_name,
-            jina_api_key=key,
+            jina_api_key=cast(Any, key),
         )
 
     @staticmethod
@@ -251,7 +253,7 @@ class EmbeddingFactory:
         Sign up at: https://cohere.com/
         """
         try:
-            from langchain_cohere import CohereEmbeddings
+            from langchain_cohere import CohereEmbeddings  # type: ignore[import-not-found]  # noqa: I001
         except ImportError:
             raise ImportError(
                 "langchain-cohere not installed. Run: pip install langchain-cohere"
@@ -267,7 +269,7 @@ class EmbeddingFactory:
         logger.info(f"Initializing Cohere embeddings: {model_name}")
         return CohereEmbeddings(
             model=model_name,
-            cohere_api_key=key,
+            cohere_api_key=cast(Any, key),
         )
 
     @staticmethod
@@ -279,7 +281,7 @@ class EmbeddingFactory:
         Sign up at: https://www.voyageai.com/
         """
         try:
-            from langchain_voyageai import VoyageAIEmbeddings
+            from langchain_voyageai import VoyageAIEmbeddings  # type: ignore[import-not-found]  # noqa: I001
         except ImportError:
             raise ImportError(
                 "langchain-voyageai not installed. Run: pip install langchain-voyageai"
@@ -295,7 +297,7 @@ class EmbeddingFactory:
         logger.info(f"Initializing Voyage AI embeddings: {model_name}")
         return VoyageAIEmbeddings(
             model=model_name,
-            voyage_api_key=key,
+            voyage_api_key=cast(Any, key),
         )
 
     @staticmethod

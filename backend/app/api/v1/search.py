@@ -7,6 +7,7 @@ Provides semantic search across collections with hybrid retrieval.
 import logging
 import re
 import time
+from typing import Protocol, TypedDict, cast
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -33,6 +34,15 @@ from app.db.models import SearchQuery
 from app.services.retrieval import HybridSearchServiceDep, VectorStoreService
 
 logger = logging.getLogger(__name__)
+
+class _PresetConfig(TypedDict):
+    alpha: float
+    top_k_multiplier: float
+    use_reranker: bool
+
+
+class _VectorStoreProtocol(Protocol):
+    def get_chunks_by_document(self, document_id: str) -> list: ...
 
 
 def _extract_section(content: str) -> str | None:
@@ -135,7 +145,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 
 # Preset configurations for different retrieval modes
-PRESET_CONFIGS = {
+PRESET_CONFIGS: dict[str, _PresetConfig] = {
     "high_precision": {
         "alpha": 0.85,       # Heavy semantic weight for precision
         "top_k_multiplier": 1.0,  # Fewer results, more precise
@@ -171,6 +181,7 @@ async def search(
 ) -> SearchResponse:
     """Execute a search query using hybrid retrieval."""
     start_time = time.perf_counter()
+    vector_store_typed = cast(_VectorStoreProtocol, vector_store)
 
     # Get database settings for defaults
     db_settings = await settings_repo.get()
@@ -285,7 +296,7 @@ async def search(
         if doc_id and chunk_index is not None and context_window > 0:
             try:
                 if doc_id not in doc_chunks_cache:
-                    doc_chunks_cache[doc_id] = vector_store.get_chunks_by_document(doc_id)
+                    doc_chunks_cache[doc_id] = vector_store_typed.get_chunks_by_document(doc_id)
 
                 adjacent = _get_adjacent_from_chunks(
                     chunks=doc_chunks_cache.get(doc_id, []),

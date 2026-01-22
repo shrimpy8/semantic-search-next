@@ -79,8 +79,8 @@ class HybridRetriever:
     def __init__(
         self,
         semantic_retriever: VectorStoreRetriever,
-        documents: list[Document] = None,
-        reranker: BaseReranker = None,
+        documents: list[Document] | None = None,
+        reranker: BaseReranker | None = None,
         alpha: float = 0.5,
         rrf_k: int = 60,
         bm25_k1: float = 1.5,
@@ -141,7 +141,7 @@ class HybridRetriever:
         self,
         semantic_results: list[tuple[Document, float]],
         bm25_results: list[BM25Result],
-        alpha: float = None
+        alpha: float | None = None
     ) -> list[HybridResult]:
         """
         Combine results using Reciprocal Rank Fusion (RRF).
@@ -228,9 +228,9 @@ class HybridRetriever:
         query: str,
         k: int = 5,
         method: RetrievalMethod = RetrievalMethod.HYBRID,
-        alpha: float = None,
+        alpha: float | None = None,
         use_reranker: bool = True,
-        fetch_k: int = None
+        fetch_k: int | None = None
     ) -> list[HybridResult]:
         """
         Retrieve relevant documents using specified method.
@@ -266,7 +266,8 @@ class HybridRetriever:
         elif method == RetrievalMethod.BM25:
             results = self._bm25_retrieve(query, fetch_k)
         else:  # HYBRID
-            results = self._hybrid_retrieve(query, fetch_k, alpha)
+            alpha_value = alpha if alpha is not None else self.alpha
+            results = self._hybrid_retrieve(query, fetch_k, alpha_value)
 
         # Apply re-ranking if available and requested
         if use_reranker and self.reranker and self.reranker.is_available():
@@ -330,9 +331,10 @@ class HybridRetriever:
         self,
         query: str,
         k: int,
-        alpha: float = None
+        alpha: float | None = None
     ) -> list[HybridResult]:
         """Retrieve using hybrid BM25 + semantic search."""
+        alpha_value = alpha if alpha is not None else self.alpha
         # Get semantic results
         docs_with_scores = self._semantic_retrieve_with_scores(query, k)
         if docs_with_scores is None:
@@ -355,7 +357,7 @@ class HybridRetriever:
         return self._reciprocal_rank_fusion(
             semantic_results,
             bm25_results,
-            alpha
+            alpha_value
         )
 
     def _semantic_retrieve_with_scores(
@@ -396,10 +398,13 @@ class HybridRetriever:
         """Apply re-ranking to results."""
         if not results:
             return results
+        reranker = self.reranker
+        if reranker is None:
+            return results
 
         try:
             documents = [r.document for r in results]
-            rerank_results = self.reranker.rerank(query, documents)
+            rerank_results = reranker.rerank(query, documents)
 
             # Update results with rerank scores
             updated_results = []
@@ -446,7 +451,7 @@ class HybridRetriever:
 
 def create_hybrid_retriever(
     semantic_retriever: VectorStoreRetriever,
-    documents: list[Document] = None,
+    documents: list[Document] | None = None,
     enable_reranker: bool = True,
     reranker_provider: str = "auto",
     alpha: float = 0.5,

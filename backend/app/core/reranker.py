@@ -10,6 +10,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any, cast
 
 from langchain_core.documents import Document
 
@@ -46,7 +47,7 @@ class BaseReranker(ABC):
         self,
         query: str,
         documents: list[Document],
-        top_k: int = None
+        top_k: int | None = None
     ) -> list[RerankResult]:
         """
         Re-rank documents based on relevance to query.
@@ -98,7 +99,7 @@ class CohereReranker(BaseReranker):
                 Options: rerank-english-v3.0, rerank-multilingual-v3.0
         """
         self.model = model
-        self._client = None
+        self._client: Any | None = None
         self._available = False
 
         self._initialize_client()
@@ -128,7 +129,7 @@ class CohereReranker(BaseReranker):
         self,
         query: str,
         documents: list[Document],
-        top_k: int = None
+        top_k: int | None = None
     ) -> list[RerankResult]:
         """
         Re-rank documents using Cohere's rerank API.
@@ -154,8 +155,9 @@ class CohereReranker(BaseReranker):
         doc_texts = [doc.page_content for doc in documents]
 
         try:
+            client = cast(Any, self._client)
             # Call Cohere rerank API
-            response = self._client.rerank(
+            response = client.rerank(
                 model=self.model,
                 query=query,
                 documents=doc_texts,
@@ -210,7 +212,7 @@ class JinaReranker(BaseReranker):
                 - jinaai/jina-reranker-v2-base-multilingual (multilingual)
         """
         self.model_name = model_name
-        self._model = None
+        self._model: Any | None = None
         self._available = False
 
         self._initialize_model()
@@ -240,7 +242,7 @@ class JinaReranker(BaseReranker):
         self,
         query: str,
         documents: list[Document],
-        top_k: int = None
+        top_k: int | None = None
     ) -> list[RerankResult]:
         """
         Re-rank documents using Jina's cross-encoder model.
@@ -266,8 +268,9 @@ class JinaReranker(BaseReranker):
         pairs = [(query, doc.page_content) for doc in documents]
 
         try:
+            model = cast(Any, self._model)
             # Get scores from cross-encoder
-            scores = self._model.predict(pairs)
+            scores = model.predict(pairs)
 
             # Create (score, original_index) pairs
             scored_indices = [(float(score), idx) for idx, score in enumerate(scores)]

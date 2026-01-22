@@ -175,7 +175,10 @@ async def update_ground_truth(
             )
 
     # Apply updates
-    updated = await ground_truth_repo.update(ground_truth, update_data)
+    for field, value in update_data.items():
+        setattr(ground_truth, field, value)
+
+    updated = await ground_truth_repo.update(ground_truth)
     await db.commit()
     await db.refresh(updated)
 

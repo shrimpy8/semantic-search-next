@@ -232,7 +232,7 @@ class SearchQuery(Base):
     )
 
     # New columns for evaluation data capture
-    retrieved_chunks: Mapped[dict[str, Any] | None] = mapped_column(
+    retrieved_chunks: Mapped[list[dict[str, Any]] | None] = mapped_column(
         JSONB,
         nullable=True,
     )
@@ -657,7 +657,7 @@ class EvaluationResult(Base):
     query: Mapped[str] = mapped_column(Text, nullable=False)
     generated_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     expected_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
-    retrieved_chunks: Mapped[dict[str, Any] | None] = mapped_column(
+    retrieved_chunks: Mapped[list[dict[str, Any]] | None] = mapped_column(
         JSONB,
         nullable=True,
     )
