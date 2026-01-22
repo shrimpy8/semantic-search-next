@@ -136,12 +136,9 @@ class AnthropicJudge(BaseLLMJudge):
 
         logger.debug(f"Calling Anthropic judge with model: {self.model}")
 
-        # Add JSON instruction to system prompt
-        enhanced_system = (
-            f"{system_prompt}\n\n"
-            "IMPORTANT: Respond with ONLY a valid JSON object. "
-            "Do not include any explanatory text before or after the JSON."
-        )
+        # Add JSON instruction to system prompt (externalized in evaluation.yaml)
+        json_guardrail = self._prompts.get("json_guardrail", "")
+        enhanced_system = f"{system_prompt}\n\n{json_guardrail}"
 
         response = await client.messages.create(
             model=self.model,
