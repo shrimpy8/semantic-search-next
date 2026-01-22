@@ -23,6 +23,7 @@ from fastapi import Depends
 
 from app.config import Settings, get_settings
 from app.core.bm25_retriever import BM25Retriever
+from app.core.chroma_filters import build_chromadb_filter
 from app.core.hybrid_retriever import (
     HybridResult,
     HybridRetriever,
@@ -255,21 +256,7 @@ class HybridSearchService:
             List of HybridResult with scores
         """
         # Build filter for ChromaDB
-        filter_dict = None
-        if collection_id or document_ids:
-            conditions = []
-            if collection_id:
-                conditions.append({"collection_id": {"$eq": collection_id}})
-            if document_ids:
-                if len(document_ids) == 1:
-                    conditions.append({"document_id": {"$eq": document_ids[0]}})
-                else:
-                    conditions.append({"document_id": {"$in": document_ids}})
-
-            if len(conditions) == 1:
-                filter_dict = conditions[0]
-            else:
-                filter_dict = {"$and": conditions}
+        filter_dict = build_chromadb_filter(collection_id, document_ids)
 
         # Get semantic retriever with filter
         semantic_retriever = self.vector_store.get_retriever(

@@ -10,7 +10,12 @@ with soft limits, validation, and integration with ChromaDB for vector storage.
 import logging
 from typing import Any
 
-from app.core.storage import COLLECTIONS_FILE, DOCUMENTS_FILE, JSONStorage
+from app.core.storage import (
+    COLLECTIONS_FILE,
+    DOCUMENTS_FILE,
+    JSONStorage,
+    paginate_list,
+)
 from app.models.collection import Collection, CollectionSettings
 from app.models.errors import (
     DuplicateError,
@@ -238,17 +243,12 @@ class CollectionManager:
         all_data.sort(key=lambda x: x.get("created_at", ""), reverse=True)
 
         # Handle pagination cursor
-        start_index = 0
-        if starting_after:
-            for i, item in enumerate(all_data):
-                if item.get("id") == starting_after:
-                    start_index = i + 1
-                    break
-
-        # Slice for pagination
-        end_index = start_index + limit
-        page_data = all_data[start_index:end_index]
-        has_more = end_index < len(all_data)
+        page_data, has_more, next_cursor = paginate_list(
+            items=all_data,
+            limit=limit,
+            starting_after=starting_after,
+            id_field="id",
+        )
 
         # Convert to Collection objects
         collections = []
@@ -257,11 +257,6 @@ class CollectionManager:
             if include_stats:
                 collection = self._add_stats(collection)
             collections.append(collection)
-
-        # Set next cursor
-        next_cursor = None
-        if has_more and collections:
-            next_cursor = collections[-1].id
 
         return ListResponse(
             data=collections,

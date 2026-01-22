@@ -11,7 +11,12 @@ import hashlib
 import logging
 from typing import Any
 
-from app.core.storage import COLLECTIONS_FILE, DOCUMENTS_FILE, JSONStorage
+from app.core.storage import (
+    COLLECTIONS_FILE,
+    DOCUMENTS_FILE,
+    JSONStorage,
+    paginate_list,
+)
 from app.models.document import Document, DocumentStatus
 from app.models.errors import (
     DuplicateError,
@@ -282,25 +287,15 @@ class DocumentManager:
         all_data.sort(key=lambda x: x.get("uploaded_at", ""), reverse=True)
 
         # Handle pagination
-        start_index = 0
-        if starting_after:
-            for i, item in enumerate(all_data):
-                if item.get("id") == starting_after:
-                    start_index = i + 1
-                    break
-
-        # Slice for pagination
-        end_index = start_index + limit
-        page_data = all_data[start_index:end_index]
-        has_more = end_index < len(all_data)
+        page_data, has_more, next_cursor = paginate_list(
+            items=all_data,
+            limit=limit,
+            starting_after=starting_after,
+            id_field="id",
+        )
 
         # Convert to Document objects
         documents = [Document.from_dict(data) for data in page_data]
-
-        # Set next cursor
-        next_cursor = None
-        if has_more and documents:
-            next_cursor = documents[-1].id
 
         return ListResponse(
             data=documents,

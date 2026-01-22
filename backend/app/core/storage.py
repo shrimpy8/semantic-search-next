@@ -117,6 +117,39 @@ class JSONStorage:
             return obj.isoformat()
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
+
+def paginate_list(
+    items: list[dict[str, Any]],
+    limit: int,
+    starting_after: str | None = None,
+    id_field: str = "id",
+) -> tuple[list[dict[str, Any]], bool, str | None]:
+    """
+    Paginate a sorted list of items using cursor-based pagination.
+
+    Args:
+        items: Pre-sorted list of items
+        limit: Maximum items to return
+        starting_after: Cursor ID to start after
+        id_field: ID field name for cursor lookup
+
+    Returns:
+        Tuple of (page_items, has_more, next_cursor)
+    """
+    start_index = 0
+    if starting_after:
+        for i, item in enumerate(items):
+            if item.get(id_field) == starting_after:
+                start_index = i + 1
+                break
+
+    end_index = start_index + limit
+    page_items = items[start_index:end_index]
+    has_more = end_index < len(items)
+    next_cursor = page_items[-1].get(id_field) if has_more and page_items else None
+
+    return page_items, has_more, next_cursor
+
     # CRUD Operations
 
     def get_by_id(
