@@ -38,9 +38,26 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
 
   if (totalResults === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl border border-dashed border-muted-foreground/20 animate-in fade-in duration-300">
-        {/* Glowing icon */}
-        <div className="relative mb-6">
+      <div className="space-y-4 animate-in fade-in duration-300">
+        {/* Injection Warning Banner (M3A) - show even with no results */}
+        {data.injection_warning && data.injection_details?.query && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                Query contains unusual patterns
+              </p>
+              <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
+                Your query contains patterns commonly associated with prompt manipulation.
+                This may explain why no relevant results were found.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl border border-dashed border-muted-foreground/20">
+          {/* Glowing icon */}
+          <div className="relative mb-6">
           <div className="absolute inset-0 bg-muted-foreground/10 rounded-2xl blur-xl" />
           <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
             <Search className="h-8 w-8 text-muted-foreground" />
@@ -70,6 +87,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
             </div>
           </div>
         </div>
+        </div>
       </div>
     );
   }
@@ -82,6 +100,29 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
   if (!hasHighConfidenceResults && hasLowConfidenceResults) {
     return (
       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Injection Warning Banner (M3A) - also show in low-confidence view */}
+        {data.injection_warning && data.injection_details && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                Potential content issue detected
+              </p>
+              <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
+                {data.injection_details.query && (
+                  <span>Your query contains patterns that may affect AI responses. </span>
+                )}
+                {data.injection_details.chunks && (
+                  <span>
+                    {data.injection_details.chunks.flagged_count} of {data.injection_details.chunks.total_count} retrieved
+                    document{data.injection_details.chunks.total_count !== 1 ? 's' : ''} contain unusual patterns.
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* No high-confidence results message */}
         <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
