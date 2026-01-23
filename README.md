@@ -408,8 +408,8 @@ semantic-search-next/
 ├── docker-compose.yml           # PostgreSQL + ChromaDB + pgAdmin
 ├── docs/
 │   ├── ARCHITECTURE.md          # Detailed system design
-│   └── INFRASTRUCTURE.md        # Setup guide for all services
-│   ├── PROMPT_INJECTION_PLAN.md # Prompt-injection mitigation plan
+│   ├── INFRASTRUCTURE.md        # Setup guide for all services
+│   ├── PROJECT_STATUS.md        # Implementation status & roadmap
 │   └── SETUP.md                 # Quick-start setup checklist
 ├── backend/
 │   ├── .env.example             # Backend environment template
