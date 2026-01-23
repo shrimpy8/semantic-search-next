@@ -18,6 +18,43 @@ interface SearchResultsProps {
   isLoading: boolean;
 }
 
+// Extracted component for DRY - injection warning banner (M3A)
+interface InjectionWarningBannerProps {
+  details: NonNullable<SearchResponse['injection_details']>;
+  variant?: 'default' | 'no-results';
+}
+
+function InjectionWarningBanner({ details, variant = 'default' }: InjectionWarningBannerProps) {
+  const isNoResults = variant === 'no-results';
+
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+      <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+          {isNoResults ? 'Query contains unusual patterns' : 'Potential content issue detected'}
+        </p>
+        <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
+          {details.query && (
+            <span>
+              {isNoResults
+                ? 'Your query contains patterns commonly associated with prompt manipulation. This may explain why no relevant results were found.'
+                : 'Your query contains patterns that may affect AI responses. '}
+            </span>
+          )}
+          {details.chunks && !isNoResults && (
+            <span>
+              {details.chunks.flagged_count} of {details.chunks.total_count} retrieved
+              document{details.chunks.total_count !== 1 ? 's' : ''} contain unusual patterns.
+            </span>
+          )}
+          {!isNoResults && ' Results are shown but please verify the AI answer carefully.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function SearchResults({ data, isLoading }: SearchResultsProps) {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const { data: settings } = useSettings();
@@ -39,20 +76,9 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
   if (totalResults === 0) {
     return (
       <div className="space-y-4 animate-in fade-in duration-300">
-        {/* Injection Warning Banner (M3A) - show even with no results */}
+        {/* Injection Warning Banner (M3A) */}
         {data.injection_warning && data.injection_details?.query && (
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
-            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                Query contains unusual patterns
-              </p>
-              <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
-                Your query contains patterns commonly associated with prompt manipulation.
-                This may explain why no relevant results were found.
-              </p>
-            </div>
-          </div>
+          <InjectionWarningBanner details={data.injection_details} variant="no-results" />
         )}
 
         <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl border border-dashed border-muted-foreground/20">
@@ -102,25 +128,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
         {/* Injection Warning Banner (M3A) - also show in low-confidence view */}
         {data.injection_warning && data.injection_details && (
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
-            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                Potential content issue detected
-              </p>
-              <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
-                {data.injection_details.query && (
-                  <span>Your query contains patterns that may affect AI responses. </span>
-                )}
-                {data.injection_details.chunks && (
-                  <span>
-                    {data.injection_details.chunks.flagged_count} of {data.injection_details.chunks.total_count} retrieved
-                    document{data.injection_details.chunks.total_count !== 1 ? 's' : ''} contain unusual patterns.
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
+          <InjectionWarningBanner details={data.injection_details} />
         )}
 
         {/* No high-confidence results message */}
@@ -251,26 +259,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
 
       {/* Injection Warning Banner (M3A) */}
       {data.injection_warning && data.injection_details && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
-          <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
-              Potential content issue detected
-            </p>
-            <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
-              {data.injection_details.query && (
-                <span>Your query contains patterns that may affect AI responses. </span>
-              )}
-              {data.injection_details.chunks && (
-                <span>
-                  {data.injection_details.chunks.flagged_count} of {data.injection_details.chunks.total_count} retrieved
-                  document{data.injection_details.chunks.total_count !== 1 ? 's' : ''} contain unusual patterns.
-                </span>
-              )}
-              {' '}Results are shown but please verify the AI answer carefully.
-            </p>
-          </div>
-        </div>
+        <InjectionWarningBanner details={data.injection_details} />
       )}
 
       {/* AI Answer card with verification */}
