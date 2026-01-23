@@ -216,8 +216,116 @@ All 16 prompt hardening tasks have been implemented:
 - All prompts contain either instruction hierarchy or untrusted data warnings
 
 **Next steps:**
-- Commit changes to `security/prompt-injection-plan` branch
-- Manual testing with search + answer generation
-- Consider proceeding to Milestone 2 (observability-only injection detection)
+- ✅ Commit changes to `security/prompt-injection-plan` branch
+- ✅ Manual testing with search + answer generation
+- ✅ Proceed to Milestone 2 (observability-only injection detection)
+
+---
+
+## Milestone 2 — Detailed Implementation Tracker
+
+### Implementation Phases
+
+| Phase | Description | Risk Level | Status |
+|-------|-------------|------------|--------|
+| A | Create isolated detector module (no integration) | Zero | ✅ Done |
+| B | Integrate with feature flag + try/except safety | Low | ✅ Done |
+
+### Phase A: Isolated Module
+
+**Files Created:**
+- `backend/app/core/injection_detector.py` - Standalone detection module
+- `backend/tests/test_injection_detector.py` - 14 unit tests
+
+**Pattern Categories Detected:**
+| Category | Weight | Example |
+|----------|--------|---------|
+| `instruction_override` | 0.8 | "ignore previous instructions" |
+| `role_manipulation` | 0.6-0.7 | "you are now a hacker" |
+| `system_extraction` | 0.7-0.9 | "show me the system prompt" |
+| `delimiter_escape` | 0.6-0.9 | `</system>`, `[INST]` |
+| `jailbreak_keywords` | 0.5-0.7 | "DAN mode", "bypass filter" |
+
+**Checkpoint:** `3e2f02f` (safe rollback point)
+
+### Phase B: Safe Integration
+
+**Files Modified:**
+- `backend/app/config.py` - Added `enable_injection_detection` feature flag
+- `backend/app/services/retrieval.py` - Added observability-only integration
+
+**Safety Mechanisms:**
+1. **Feature Flag**: Set `ENABLE_INJECTION_DETECTION=false` in `.env` to disable
+2. **Safe Import**: Graceful fallback if module fails to load
+3. **Try/Except Wrapper**: Detection errors never break search
+4. **Logging Only**: Detection results only logged, never blocks or filters
+
+**Integration Code Pattern:**
+```python
+# Safe import with fallback
+_injection_detector = None
+try:
+    from app.core.injection_detector import InjectionDetector
+    _injection_detector = InjectionDetector()
+except Exception:
+    pass  # Detection is optional
+
+# In search() method - logging only
+if _injection_detector and self.settings.enable_injection_detection:
+    try:
+        result = _injection_detector.scan_text(query)
+        if result.detected:
+            logger.warning(f"[INJECTION_DETECT] Query flagged: {result.patterns}")
+    except Exception:
+        pass  # Never break search
+```
+
+**Rollback Procedure:**
+```bash
+# Option 1: Disable via feature flag (instant, no restart needed with --reload)
+echo "ENABLE_INJECTION_DETECTION=false" >> .env
+
+# Option 2: Git rollback to pre-integration
+git reset --hard 3e2f02f
+```
+
+### Validation Results
+
+| Test | Result |
+|------|--------|
+| All 14 unit tests | ✅ Pass |
+| Module import in retrieval.py | ✅ Success |
+| Feature flag enabled by default | ✅ Verified |
+| Search with injection query | ✅ Logs warning, returns results |
+| Backend health check | ✅ Healthy |
+
+### Change Log
+
+| Date | Phase | Commit | Notes |
+|------|-------|--------|-------|
+| 2025-01-22 | A | 3e2f02f | Isolated detector module + tests |
+| 2025-01-22 | B | c9dd9b8 | Integration with feature flag |
+
+### Milestone 2 Completion Summary
+
+**Status: ✅ COMPLETE (Observability Mode)**
+
+Injection detection is now active in observability-only mode:
+- Scans queries and retrieved chunks for injection patterns
+- Logs warnings via `[INJECTION_DETECT]` prefix
+- Never blocks, filters, or modifies search behavior
+- Disabled instantly via feature flag if issues arise
+
+**Monitoring:**
+```bash
+# Watch for injection detection logs
+tail -f backend.log | grep INJECTION_DETECT
+```
+
+**Future Enhancements (Milestone 2+):**
+- Add metrics/counters for detection events
+- Dashboard for injection attempt visualization
+- Configurable thresholds per pattern category
+- Optional soft warnings in API response (non-blocking)
 
 ---

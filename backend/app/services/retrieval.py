@@ -34,6 +34,18 @@ from app.core.reranker import BaseReranker, RerankerFactory
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# Injection Detection (Observability-Only)
+# Safe import with graceful fallback - detection is optional
+# =============================================================================
+_injection_detector = None
+try:
+    from app.core.injection_detector import InjectionDetector
+    _injection_detector = InjectionDetector()
+    logger.info("Injection detector initialized (observability mode)")
+except Exception as e:
+    logger.warning(f"Injection detector not available: {e}")
+
 # Singleton instances
 _vector_store_instance = None
 _hybrid_search_service_instance = None
@@ -317,6 +329,38 @@ class HybridSearchService:
             method=retrieval_method,
             use_reranker=use_reranker and reranker is not None,
         )
+
+        # =================================================================
+        # Injection Detection (Observability-Only)
+        # This block ONLY logs - it never modifies or blocks results
+        # Disable via ENABLE_INJECTION_DETECTION=false in .env
+        # =================================================================
+        if _injection_detector and self.settings.enable_injection_detection:
+            try:
+                # Scan query (user input)
+                query_scan = _injection_detector.scan_text(query)
+                if query_scan.detected:
+                    logger.warning(
+                        f"[INJECTION_DETECT] Query flagged: "
+                        f"patterns={query_scan.patterns}, score={query_scan.score:.2f}, "
+                        f"query='{query[:100]}...'"
+                    )
+
+                # Scan retrieved chunks (document content)
+                chunk_texts = [r.document.page_content for r in results if r.document]
+                if chunk_texts:
+                    chunk_results = _injection_detector.scan_texts(chunk_texts)
+                    summary = _injection_detector.get_summary(chunk_results)
+                    if summary["total_detected"] > 0:
+                        logger.warning(
+                            f"[INJECTION_DETECT] Chunks flagged: "
+                            f"{summary['total_detected']}/{summary['total_scanned']} chunks, "
+                            f"categories={summary['categories_found']}, "
+                            f"max_score={summary['max_score']:.2f}"
+                        )
+            except Exception as e:
+                # Detection errors should NEVER break search
+                logger.error(f"[INJECTION_DETECT] Detection failed (non-blocking): {e}")
 
         return results
 
