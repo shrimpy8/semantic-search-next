@@ -18,7 +18,7 @@ This document tracks implementation status, security milestones, and outstanding
 | Frontend | **Complete** | Full UI with Settings, Analytics, How It Works |
 | Security (M1) | **Complete** | Prompt hardening across all YAML files |
 | Security (M2) | **Complete** | Injection detection (observability mode) |
-| Lint/Type | **Partial** | 1 import sorting issue remaining |
+| Lint/Type | **Complete** | All issues resolved |
 
 ---
 
@@ -92,28 +92,17 @@ All prompts hardened with instruction hierarchy and untrusted data warnings:
 | Cohere | embed-english-v3.0 | - | - | rerank-english-v3.0 |
 | Voyage | voyage-large-2 | - | - | - |
 
-### Legacy Module Cleanup (Partial)
+### Legacy Module Cleanup (Complete)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Deprecation notes in legacy modules | Done | `storage.py` marked as legacy |
+| Deprecation notes in legacy modules | Done | Was marked as legacy |
 | Unused re-exports removed from `__init__.py` | Done | Cleaned up |
-| Full legacy module removal | Not started | Optional, low priority |
+| Full legacy module removal | Done | Removed 6 unused modules |
 
 ---
 
 ## Outstanding Items
-
-### High Priority
-
-| Item | Priority | Description | Files |
-|------|----------|-------------|-------|
-| **Lint import sorting** | P1 | 1 import error in retrieval.py | `backend/app/services/retrieval.py:17` |
-
-**Fix**:
-```bash
-cd backend && ruff check --fix app/services/retrieval.py
-```
 
 ### Medium Priority (Security)
 
@@ -129,7 +118,6 @@ cd backend && ruff check --fix app/services/retrieval.py
 | Milestone 5: Tool-use safety | P3 | Allowlists/sandboxing (only needed if tools added) |
 | Redis rate limiting | P3 | For multi-worker production deployments |
 | OCR fallback for scanned PDFs | P3 | Currently yields empty text |
-| Full legacy module removal | P3 | Optional cleanup |
 
 ---
 
@@ -169,17 +157,6 @@ cd backend && ruff check --fix app/services/retrieval.py
 2. **BM25 In-Memory**: Per-collection cache with invalidation on document changes
 3. **RRF for Fusion**: Robust to score distribution differences between BM25 and semantic
 4. **Two-Tier Config**: .env for infrastructure, DB for user preferences
-
-### Legacy Modules (Not Used)
-
-The following modules exist for reference only and are NOT used by the FastAPI app:
-
-- `core/storage.py` - JSON storage (marked deprecated)
-- `core/document_manager.py` - Legacy document management
-- `core/collection_manager.py` - Legacy collection management
-- `core/search_manager.py` - Legacy search management
-- `core/conversation.py` - Conversation history
-- `core/ab_testing.py` - A/B testing framework
 
 ---
 
