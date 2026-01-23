@@ -155,13 +155,13 @@ User-facing warnings for high-confidence detections (score > 0.7):
 | Comparison Dashboard | Medium | Compare eval runs side-by-side |
 | Export Results | Low | Export to CSV/JSON |
 
-### Search Enhancements (Not Started)
+### Search Enhancements
 
-| Feature | Priority | Description |
-|---------|----------|-------------|
-| Multi-collection Search | Medium | Search across selected collections |
-| Saved Searches | Low | Save and rerun queries |
-| Search Suggestions | Low | Query autocomplete |
+| Feature | Priority | Status | Description |
+|---------|----------|--------|-------------|
+| Multi-collection Search | Medium | **Done** | "All collections" option in search |
+| Saved Searches | Low | Not Started | Save and rerun queries |
+| Search Suggestions | Low | Not Started | Query autocomplete |
 
 ---
 
@@ -193,6 +193,7 @@ User-facing warnings for high-confidence detections (score > 0.7):
 | Document | Purpose |
 |----------|---------|
 | [README.md](../README.md) | Project overview, quick start |
+| [API.md](API.md) | REST API reference with examples |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system design, data flows |
 | [INFRASTRUCTURE.md](INFRASTRUCTURE.md) | Setup guide for all services |
 | [SETUP.md](SETUP.md) | Quick-start setup checklist |

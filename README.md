@@ -247,6 +247,8 @@ Run evaluations to measure search quality with configurable judge models.
 > - Troubleshooting guide
 >
 > **Quick Start**: See [SETUP.md](./docs/SETUP.md) for a concise, working local setup checklist.
+>
+> **API Reference**: See [API.md](./docs/API.md) for full endpoint documentation with examples.
 
 ## Local AI with Ollama (Optional)
 
