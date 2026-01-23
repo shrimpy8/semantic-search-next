@@ -70,6 +70,7 @@ class InjectionDetector:
         (r"disregard\s+(all\s+)?(previous|prior|above|earlier|your)\s+(instructions?|prompts?|rules?)", "instruction_override", 0.8),
         (r"(please\s+)?disregard\s+(your\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|rules?)", "instruction_override", 0.8),
         (r"forget\s+(all\s+)?(previous|prior|above|earlier|your)\s+(instructions?|prompts?|context)", "instruction_override", 0.8),
+        (r"forget\s+(everything|all)\s+(above|before|prior)", "instruction_override", 0.8),
         (r"do\s+not\s+follow\s+(the\s+)?(previous|prior|above|system)\s+(instructions?|prompts?)", "instruction_override", 0.8),
 
         # Category: role_manipulation (weight: 0.7)
@@ -94,7 +95,7 @@ class InjectionDetector:
         # Category: jailbreak_keywords (weight: 0.5 - lower confidence, needs context)
         (r"DAN\s+(mode|prompt)", "jailbreak_keywords", 0.5),
         (r"developer\s+mode\s+(enabled|activated)", "jailbreak_keywords", 0.6),
-        (r"bypass\s+(the\s+)?(filter|safety|restriction)", "jailbreak_keywords", 0.7),
+        (r"bypass\s+(the\s+)?(filter|safety|restriction|content\s+filter)", "jailbreak_keywords", 0.7),
     ]
 
     def __init__(self):
