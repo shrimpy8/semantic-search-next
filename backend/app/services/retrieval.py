@@ -18,9 +18,9 @@ import logging
 import os
 from functools import lru_cache
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends
-from uuid import UUID
 
 from app.config import Settings, get_settings
 from app.core.bm25_retriever import BM25Retriever

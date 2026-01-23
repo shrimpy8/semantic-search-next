@@ -363,6 +363,16 @@ class SearchResponse(BaseModel):
         description="LLM model used for answer generation"
     )
 
+    # Injection detection warnings (M3A - informational only)
+    injection_warning: bool = Field(
+        default=False,
+        description="True if potential injection patterns detected (score > 0.7)"
+    )
+    injection_details: dict | None = Field(
+        default=None,
+        description="Details about detected patterns (query and/or chunks)"
+    )
+
 
 # ============================================================================
 # Health Schemas

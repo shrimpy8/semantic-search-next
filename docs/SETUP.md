@@ -1,151 +1,209 @@
-# Setup Guide (Semantic Search Next)
+# Setup Guide
 
-This guide consolidates the minimum steps to run the full app locally (backend + frontend + Postgres + ChromaDB), plus optional local AI.
+Step-by-step guide to get a working local setup of Semantic Search Next.
 
-## Requirements
-- Node.js 18+
-- Python 3.11+
-- Docker + Docker Compose
+## Default Configuration
 
-## Quick Start (Recommended)
+This setup uses:
+- **Embeddings**: OpenAI `text-embedding-3-large`
+- **Answer Generation**: Anthropic Claude `claude-sonnet-4-20250514`
+- **Evaluation Judge**: Anthropic Claude `claude-sonnet-4-20250514`
+- **Reranker**: Jina (local, no API key needed)
+- **Database**: PostgreSQL (Docker)
+- **Vector Store**: ChromaDB (Docker)
 
-### 1) Configure env files
+## Prerequisites
+
+- **Node.js 18+** - [Download](https://nodejs.org/)
+- **Python 3.11+** - [Download](https://www.python.org/downloads/)
+- **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop/)
+
+## Step 1: Clone Repository
+
 ```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
+git clone https://github.com/shrimpy8/semantic-search-next.git
+cd semantic-search-next
 ```
-Edit `backend/.env` with your API keys if using cloud providers.
 
-### 2) Start data services
+## Step 2: Start PostgreSQL
+
 ```bash
-# Postgres + pgAdmin
-cd /Users/harshh/Documents/GitHub/semantic-search-next
+# Start PostgreSQL container
 docker-compose up -d
 
-# ChromaDB (separate container)
-docker run -d --name chromadb -p 8000:8000 chromadb/chroma
+# Verify it's running
+docker ps | grep postgres
+# Should show: semantic-search-postgres ... Up ... 0.0.0.0:5432->5432/tcp
 ```
 
-Ports:
-- Postgres: `localhost:5432`
-- ChromaDB: `localhost:8000`
-- pgAdmin: `http://localhost:3001`
+Connection details:
+- Host: `localhost`
+- Port: `5432`
+- Database: `semantic_search`
+- User: `postgres`
+- Password: `postgres`
 
-### 3) Start backend
+## Step 3: Start ChromaDB
+
 ```bash
-cd /Users/harshh/Documents/GitHub/semantic-search-next/backend
+# Start ChromaDB container
+docker run -d --name chromadb -p 8000:8000 chromadb/chroma
+
+# Verify it's running
+curl http://localhost:8000/api/v1/heartbeat
+# Should return: {"nanosecond heartbeat": ...}
+```
+
+## Step 4: Configure Backend
+
+```bash
+cd backend
+
+# Copy environment template
+cp .env.example .env
+```
+
+Edit `backend/.env` and add your API keys:
+
+```env
+# Required for embeddings
+OPENAI_API_KEY=sk-...
+
+# Required for answer generation and evaluation
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Step 5: Start Backend
+
+```bash
+cd backend
+
+# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate   # Windows
+
+# Install dependencies
 pip install -e ".[dev]"
+
+# Start server
 uvicorn app.main:app --reload --port 8080
 ```
 
-### 4) Start frontend
+Verify backend is running:
 ```bash
-cd /Users/harshh/Documents/GitHub/semantic-search-next/frontend
+curl http://localhost:8080/api/v1/health
+# Should return: {"status":"healthy",...}
+```
+
+## Step 6: Configure Frontend
+
+```bash
+cd frontend
+
+# Copy environment template
+cp .env.example .env.local
+```
+
+The default `frontend/.env.local` should contain:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+```
+
+## Step 7: Start Frontend
+
+```bash
+cd frontend
+
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
 ```
 
-Open:
-- UI: `http://localhost:3000`
-- API: `http://localhost:8080`
-- API docs: `http://localhost:8080/docs`
+## Step 8: Open the App
 
-### 5) Verify health
-```bash
-curl http://localhost:8080/api/v1/health/ready
-```
-Expected `services: { api: healthy, database: healthy, chromadb: healthy }`.
+Open http://localhost:3000 in your browser.
 
----
+## Step 9: Configure AI Providers (First Time)
 
-## Local PostgreSQL (Alternative to Docker)
-If you prefer a native install instead of Docker:
+1. Go to **Settings** (`/settings`)
+2. Set **Answer Provider** to `anthropic` and model to `claude-sonnet-4-20250514`
+3. Set **Eval Judge Provider** to `anthropic` and model to `claude-sonnet-4-20250514`
+4. Click **Save Settings**
 
-**macOS (Homebrew)**
-```bash
-brew install postgresql@15
-brew services start postgresql@15
-createdb semantic_search
-```
+## Verify Everything Works
 
-**Ubuntu/Debian**
-```bash
-sudo apt install postgresql-15
-sudo -u postgres createdb semantic_search
-```
-
-Then ensure `backend/.env` points to `POSTGRES_HOST=localhost` and `POSTGRES_PORT=5432`.
+1. Go to **Collections** and create a new collection
+2. Upload a document (PDF, TXT, or MD)
+3. Go to **Search** and run a query
+4. Enable "Generate AI Answer" to test answer generation
 
 ---
 
-## Optional: Local AI with Ollama
-You can run embeddings + LLM locally (no API keys required).
+## Quick Reference
 
-```bash
-# Install
-brew install ollama
-
-# Start service
-ollama serve
-
-# Pull models (example)
-ollama pull nomic-embed-text-v2-moe
-ollama pull llama3.2
-```
-
-In the app settings page (`/settings`):
-- Embedding model: `ollama:nomic-embed-text-v2-moe:latest`
-- Answer provider: `ollama` → model `llama3.2`
-- Eval provider: `ollama` → model `llama3.1` or `llama3.2`
-
----
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Frontend | http://localhost:3000 | Web UI |
+| Backend | http://localhost:8080 | REST API |
+| API Docs | http://localhost:8080/docs | Swagger UI |
+| PostgreSQL | localhost:5432 | Metadata storage |
+| ChromaDB | localhost:8000 | Vector storage |
+| pgAdmin | http://localhost:3001 | DB admin (optional) |
 
 ## Common Issues
 
-### Missing or invalid API keys
-- **OpenAI**: set `OPENAI_API_KEY` in `backend/.env`  
-- **Anthropic**: set `ANTHROPIC_API_KEY` in `backend/.env`  
-- **Cohere** (reranker/embeddings): set `COHERE_API_KEY` in `backend/.env`  
-- **Jina** (embeddings): set `JINA_API_KEY` in `backend/.env`  
-- **Voyage** (embeddings): set `VOYAGE_API_KEY` in `backend/.env`  
+### "Connection refused" to PostgreSQL
+```bash
+# Check if container is running
+docker ps | grep postgres
 
-Then restart the backend so `app/config.py` re-reads env vars.  
-You can validate provider availability in the UI at `/settings`, or via API:
-
+# If not running, start it
+docker-compose up -d
 ```
-http://localhost:8080/api/v1/settings/providers
-http://localhost:8080/api/v1/settings/llm-models
-http://localhost:8080/api/v1/settings/embedding-providers
+
+### "Connection refused" to ChromaDB
+```bash
+# Check if container is running
+docker ps | grep chroma
+
+# If not running, start it
+docker run -d --name chromadb -p 8000:8000 chromadb/chroma
 ```
-### Backend can’t connect to Postgres
-- Ensure `semantic-search-postgres` is running (Docker) or local Postgres is running.
-- Check `backend/.env`:
-  - `POSTGRES_HOST=localhost`
-  - `POSTGRES_PORT=5432`
 
-### Backend can’t connect to ChromaDB
-- Ensure the `chroma` container is running on port `8000`.
-- Verify: `curl http://localhost:8000/api/v1/heartbeat`
+### Backend can't find API keys
+- Ensure `backend/.env` file exists and has correct keys
+- Restart the backend after editing `.env`
 
-### Frontend can’t reach backend
-- Check `frontend/.env.local`:
-  - `NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1`
+### Frontend can't reach backend
+- Verify backend is running on port 8080
+- Check `frontend/.env.local` has `NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1`
 
----
-
-## Helpful Commands
+## Stop Services
 
 ```bash
-# Stop containers
-cd /Users/harshh/Documents/GitHub/semantic-search-next
+# Stop frontend: Ctrl+C in terminal
+
+# Stop backend: Ctrl+C in terminal
+
+# Stop Docker services
 docker-compose down
-
 docker stop chromadb
+```
 
-# Logs
-docker logs semantic-search-postgres
+## Start Services (After Initial Setup)
 
-docker logs chromadb
+```bash
+# 1. Start Docker services
+docker-compose up -d
+docker start chromadb
+
+# 2. Start backend
+cd backend && source .venv/bin/activate
+uvicorn app.main:app --reload --port 8080
+
+# 3. Start frontend (new terminal)
+cd frontend && npm run dev
 ```
