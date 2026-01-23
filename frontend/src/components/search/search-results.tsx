@@ -208,6 +208,30 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
         </div>
       </div>
 
+      {/* Injection Warning Banner (M3A) */}
+      {data.injection_warning && data.injection_details && (
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+          <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+              Potential content issue detected
+            </p>
+            <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
+              {data.injection_details.query && (
+                <span>Your query contains patterns that may affect AI responses. </span>
+              )}
+              {data.injection_details.chunks && (
+                <span>
+                  {data.injection_details.chunks.flagged_count} of {data.injection_details.chunks.total_count} retrieved
+                  document{data.injection_details.chunks.total_count !== 1 ? 's' : ''} contain unusual patterns.
+                </span>
+              )}
+              {' '}Results are shown but please verify the AI answer carefully.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* AI Answer card with verification */}
       {data.answer && (
         <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 overflow-hidden">

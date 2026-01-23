@@ -18,6 +18,7 @@ This document tracks implementation status, security milestones, and outstanding
 | Frontend | **Complete** | Full UI with Settings, Analytics, How It Works |
 | Security (M1) | **Complete** | Prompt hardening across all YAML files |
 | Security (M2) | **Complete** | Injection detection (observability mode) |
+| Security (M3A) | **Complete** | Soft warnings in UI (threshold > 0.7) |
 | Lint/Type | **Complete** | All issues resolved |
 
 ---
@@ -81,6 +82,20 @@ All prompts hardened with instruction hierarchy and untrusted data warnings:
 
 **Rollback**: Set `ENABLE_INJECTION_DETECTION=false` in `.env`
 
+#### Milestone 3A: Soft Warnings (Complete)
+
+User-facing warnings for high-confidence detections (score > 0.7):
+
+- **Backend**: `app/api/v1/search.py` - adds `injection_warning` and `injection_details` to response
+- **Frontend**: `components/search/search-results.tsx` - displays warning banner
+- **Behavior**: Informational only - does not block, filter, or modify results
+- **Threshold**: Only shows warnings for score > 0.7 (minimizes false positives)
+
+**What users see:**
+- Orange warning banner when query or retrieved chunks contain suspicious patterns
+- Message: "Potential content issue detected" with details
+- Advice to verify AI answer carefully
+
 ### Multi-Provider Support (Complete)
 
 | Provider | Embeddings | LLM (Answers) | LLM (Eval) | Reranker |
@@ -108,7 +123,8 @@ All prompts hardened with instruction hierarchy and untrusted data warnings:
 
 | Item | Priority | Risk | Description |
 |------|----------|------|-------------|
-| Milestone 3: Input sanitization | P2 | Medium | Normalize user input, strict output parsing |
+| Milestone 3B: Input sanitization | P2 | Medium | Normalize user input (strip injection boilerplate) |
+| Milestone 3C: Strict output parsing | P2 | Medium | JSON schema validation for LLM responses |
 | Milestone 4: Trust boundaries | P2 | Medium/High | Tag sources as trusted/untrusted, UI warnings |
 
 ### Low Priority (Future)

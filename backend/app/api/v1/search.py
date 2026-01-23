@@ -35,6 +35,14 @@ from app.services.retrieval import HybridSearchServiceDep, VectorStoreService
 
 logger = logging.getLogger(__name__)
 
+# Injection detector (safe import with fallback)
+_injection_detector = None
+try:
+    from app.core.injection_detector import InjectionDetector
+    _injection_detector = InjectionDetector()
+except Exception:
+    pass  # Detection is optional
+
 class _PresetConfig(TypedDict):
     alpha: float
     top_k_multiplier: float
@@ -497,6 +505,51 @@ async def search(
         f"rag={'yes' if answer else 'no'}"
     )
 
+    # =================================================================
+    # Injection Detection for Response (M3A - soft warnings only)
+    # Only warn if score > 0.7 (high confidence detection)
+    # =================================================================
+    injection_warning = False
+    injection_details: dict | None = None
+    INJECTION_THRESHOLD = 0.7
+
+    if _injection_detector and get_settings().enable_injection_detection:
+        try:
+            details: dict = {}
+
+            # Check query
+            query_scan = _injection_detector.scan_text(request.query)
+            if query_scan.detected and query_scan.score > INJECTION_THRESHOLD:
+                details["query"] = {
+                    "patterns": query_scan.patterns,
+                    "score": round(query_scan.score, 2),
+                }
+
+            # Check retrieved chunks (combine high + low confidence results)
+            all_results = high_confidence_results + low_confidence_results
+            chunk_contents = [r.content for r in all_results if r.content]
+            if chunk_contents:
+                chunk_scans = _injection_detector.scan_texts(chunk_contents)
+                flagged_chunks = [
+                    {"index": i, "patterns": s.patterns, "score": round(s.score, 2)}
+                    for i, s in enumerate(chunk_scans)
+                    if s.detected and s.score > INJECTION_THRESHOLD
+                ]
+                if flagged_chunks:
+                    details["chunks"] = {
+                        "flagged_count": len(flagged_chunks),
+                        "total_count": len(chunk_contents),
+                        "flagged": flagged_chunks[:5],  # Limit to first 5
+                    }
+
+            if details:
+                injection_warning = True
+                injection_details = details
+
+        except Exception as e:
+            logger.debug(f"Injection detection for response failed: {e}")
+            # Non-blocking - continue without warning
+
     return SearchResponse(
         query=request.query,
         results=high_confidence_results,
@@ -516,4 +569,7 @@ async def search(
         chunk_overlap=db_settings.chunk_overlap,
         embedding_model=db_settings.embedding_model,
         answer_model=answer_model_used,
+        # Injection warnings (M3A)
+        injection_warning=injection_warning,
+        injection_details=injection_details,
     )

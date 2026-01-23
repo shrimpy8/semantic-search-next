@@ -76,6 +76,12 @@ export interface SearchResponse {
   chunk_overlap?: number | null;
   embedding_model?: string | null;
   answer_model?: string | null;
+  // Injection detection warnings (M3A)
+  injection_warning?: boolean;
+  injection_details?: {
+    query?: { patterns: string[]; score: number };
+    chunks?: { flagged_count: number; total_count: number; flagged: Array<{ index: number; patterns: string[]; score: number }> };
+  } | null;
 }
 
 export const searchApi = {
