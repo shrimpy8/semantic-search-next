@@ -148,7 +148,7 @@ Open http://localhost:3000 in your browser.
 |---------|-----|---------|
 | Frontend | http://localhost:3000 | Web UI |
 | Backend | http://localhost:8080 | REST API |
-| API Docs | http://localhost:8080/docs | Swagger UI |
+| API Docs | http://localhost:8080/api/v1/docs | Swagger UI |
 | PostgreSQL | localhost:5432 | Metadata storage |
 | ChromaDB | localhost:8000 | Vector storage |
 | pgAdmin | http://localhost:3001 | DB admin (optional) |
