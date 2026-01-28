@@ -343,7 +343,7 @@ uvicorn app.main:app --reload --port 8080
 ```
 
 - API: `http://localhost:8080`
-- Swagger docs: `http://localhost:8080/docs`
+- Swagger docs: `http://localhost:8080/api/v1/docs`
 
 ### 4. Frontend Setup
 
