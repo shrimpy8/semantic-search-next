@@ -593,6 +593,35 @@ RERANKER_PROVIDER=auto
 
 ---
 
+## Security Configuration
+
+Security features are enabled by default and controlled via environment variables in `backend/.env`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_INJECTION_DETECTION` | `true` | Scan queries and chunks for prompt injection patterns. Observe-only — logs warnings, never blocks. |
+| `ENABLE_INPUT_SANITIZATION` | `true` | Strip high-confidence injection boilerplate from queries before embedding and LLM. |
+| `SANITIZATION_THRESHOLD` | `0.8` | Minimum pattern weight (0.0-1.0) to trigger stripping. Lower = more aggressive. |
+
+### Disabling Security Features (Rollback)
+
+```env
+# Disable injection detection (no scanning, no warnings)
+ENABLE_INJECTION_DETECTION=false
+
+# Disable input sanitization (queries passed through as-is)
+ENABLE_INPUT_SANITIZATION=false
+```
+
+### Trust Boundaries
+
+Trust boundaries are managed per-collection via the API and UI (not environment variables):
+- Mark collections as **Trusted** or **Unverified** in collection settings
+- Search results show trust indicators (shield icons)
+- AI answers warn when using content from unverified sources
+
+---
+
 ## Troubleshooting
 
 ### PostgreSQL Connection Issues

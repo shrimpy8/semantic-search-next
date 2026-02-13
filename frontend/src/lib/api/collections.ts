@@ -6,6 +6,7 @@ export interface Collection {
   description?: string;
   metadata?: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  is_trusted: boolean;
   document_count: number;
   chunk_count: number;
   created_at: string;
@@ -16,12 +17,14 @@ export interface CreateCollectionRequest {
   name: string;
   description?: string;
   metadata?: Record<string, unknown>;
+  is_trusted?: boolean;
 }
 
 export interface UpdateCollectionRequest {
   name?: string;
   description?: string;
   metadata?: Record<string, unknown>;
+  is_trusted?: boolean;
 }
 
 export interface CollectionListResponse {

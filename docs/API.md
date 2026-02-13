@@ -64,6 +64,7 @@ Create a new document collection.
 {
   "name": "Engineering Docs",
   "description": "Technical documentation",
+  "is_trusted": false,
   "metadata": {},
   "settings": {
     "default_retrieval_method": "hybrid",
@@ -120,7 +121,8 @@ Update collection properties. Only provided fields are updated.
 ```json
 {
   "name": "Updated Name",
-  "description": "New description"
+  "description": "New description",
+  "is_trusted": true
 }
 ```
 
@@ -307,9 +309,28 @@ Execute a hybrid search query with optional AI answer generation.
   "embedding_model": "text-embedding-3-small",
   "answer_model": "gpt-4o-mini",
   "injection_warning": false,
-  "injection_details": null
+  "injection_details": null,
+  "sanitization_applied": false,
+  "untrusted_sources_in_answer": false,
+  "untrusted_source_names": []
 }
 ```
+
+**Security Fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `injection_warning` | bool | True if injection patterns detected (score > 0.7) |
+| `injection_details` | object\|null | Pattern details for query and/or chunks |
+| `sanitization_applied` | bool | True if injection patterns were stripped from query |
+| `untrusted_sources_in_answer` | bool | True if AI answer uses content from unverified collections |
+| `untrusted_source_names` | string[] | Names of unverified collections used in answer |
+
+Each search result also includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_trusted` | bool | Whether the source collection is marked as trusted |
 
 **Injection Warning** (M3A)
 

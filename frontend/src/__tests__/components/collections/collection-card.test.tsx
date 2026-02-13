@@ -8,6 +8,7 @@ const mockCollection: Collection = {
   id: '1',
   name: 'Test Collection',
   description: 'A test collection description',
+  is_trusted: false,
   document_count: 5,
   chunk_count: 100,
   created_at: '2024-01-01T00:00:00Z',
@@ -63,5 +64,19 @@ describe('CollectionCard', () => {
 
     expect(screen.getByText('Edit')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it('shows trusted badge when collection is trusted', () => {
+    const trustedCollection = { ...mockCollection, is_trusted: true };
+    renderWithProviders(<CollectionCard collection={trustedCollection} />);
+
+    expect(screen.getByText('Trusted')).toBeInTheDocument();
+  });
+
+  it('does not show trusted badge when collection is not trusted', () => {
+    const untrustedCollection = { ...mockCollection, is_trusted: false };
+    renderWithProviders(<CollectionCard collection={untrustedCollection} />);
+
+    expect(screen.queryByText('Trusted')).not.toBeInTheDocument();
   });
 });

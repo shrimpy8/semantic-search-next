@@ -14,6 +14,8 @@ from typing import Any, cast
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
+from app.core.llm_judge.output_parser import parse_llm_json_array
+from app.core.llm_judge.schemas import VerificationItem
 from app.prompts import prompts
 
 logger = logging.getLogger(__name__)
@@ -141,39 +143,28 @@ class AnswerVerifier:
             response = self.llm.invoke(prompt)
             content = cast(str, response.content).strip()
 
-            # Parse JSON response
-            import json
-
-            # Find JSON array in response (handle markdown code blocks)
-            json_match = re.search(r'\[[\s\S]*\]', content)
-            if not json_match:
-                logger.warning("No JSON array found in verification response")
-                return []
-
-            results = json.loads(json_match.group())
+            # Parse and validate with shared parser + Pydantic schema (M3C)
+            verified_items = parse_llm_json_array(content, VerificationItem)
 
             # Convert to Citation objects
             citations = []
-            for result in results:
-                claim_idx = result.get("claim_number", 1) - 1
+            for item in verified_items:
+                claim_idx = item.claim_number - 1
                 if 0 <= claim_idx < len(claims):
-                    source_idx = result.get("source_index")
+                    source_idx = item.source_index
                     source_name = sources[source_idx] if source_idx is not None and source_idx < len(sources) else "Unknown"
 
                     citations.append(Citation(
                         claim=claims[claim_idx],
                         source_index=source_idx if source_idx is not None else -1,
                         source_name=source_name,
-                        quote=result.get("quote") or "",
-                        verified=result.get("status") == "SUPPORTED",
+                        quote=item.quote,
+                        verified=item.status == "SUPPORTED",
                     ))
 
             logger.debug(f"Verified {len(citations)} claims")
             return citations
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse verification JSON: {e}")
-            return []
         except Exception as e:
             logger.error(f"Failed to verify claims: {e}")
             return []

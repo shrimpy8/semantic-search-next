@@ -31,6 +31,7 @@ export interface SearchResult {
   page?: number;
   section?: string | null;
   verified: boolean;
+  source_trusted: boolean;
   scores: SearchScores;
   metadata?: Record<string, unknown>;
   // Context expansion fields (P2)
@@ -82,6 +83,11 @@ export interface SearchResponse {
     query?: { patterns: string[]; score: number };
     chunks?: { flagged_count: number; total_count: number; flagged: Array<{ index: number; patterns: string[]; score: number }> };
   } | null;
+  // Input sanitization (M3B)
+  sanitization_applied?: boolean;
+  // Trust boundaries (M4)
+  untrusted_sources_in_answer?: boolean;
+  untrusted_source_names?: string[];
 }
 
 export const searchApi = {

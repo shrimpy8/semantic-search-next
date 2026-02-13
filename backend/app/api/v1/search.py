@@ -40,8 +40,16 @@ _injection_detector = None
 try:
     from app.core.injection_detector import InjectionDetector
     _injection_detector = InjectionDetector()
-except Exception:
-    pass  # Detection is optional
+except Exception as e:
+    logger.warning(f"[INJECTION_DETECT] Failed to initialize InjectionDetector: {e}")
+
+# Input sanitizer (M3B — safe import with fallback)
+_input_sanitizer = None
+try:
+    from app.core.input_sanitizer import InputSanitizer
+    _input_sanitizer = InputSanitizer()
+except Exception as e:
+    logger.warning(f"[INPUT_SANITIZE] Failed to initialize InputSanitizer: {e}")
 
 class _PresetConfig(TypedDict):
     alpha: float
@@ -226,10 +234,34 @@ async def search(
             detail="Search query cannot be empty",
         )
 
+    # =================================================================
+    # Input Sanitization (M3B — strip injection boilerplate)
+    # =================================================================
+    sanitization_applied = False
+    search_query = request.query
+
+    if _input_sanitizer:
+        try:
+            sanitization_result = _input_sanitizer.sanitize(request.query)
+            sanitization_applied = sanitization_result.was_modified
+            search_query = sanitization_result.sanitized
+
+            # If query is empty after sanitization, reject
+            if not search_query.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Your query couldn't be processed. Please rephrase your search using different words.",
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.debug(f"Input sanitization failed: {e}")
+            # Non-blocking — continue with original query
+
     # Execute hybrid search with reranking
     try:
         hybrid_results = hybrid_search.search(
-            query=request.query,
+            query=search_query,
             collection_id=str(request.collection_id) if request.collection_id else None,
             document_ids=[str(d) for d in request.document_ids] if request.document_ids else None,
             k=top_k,
@@ -242,7 +274,7 @@ async def search(
         logger.error(f"Search failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Search operation failed: {str(e)}",
+            detail="Search operation failed. Please try again or contact support.",
         )
 
     # Determine if reranking was applied (affects confidence thresholds/display)
@@ -264,6 +296,22 @@ async def search(
 
     # Cache chunks per document for context expansion
     doc_chunks_cache: dict[str, list] = {}
+
+    # Trust cache: collection_id -> is_trusted (M4 — no N+1 queries)
+    trust_cache: dict[str, bool] = {}
+
+    async def _get_collection_trust(coll_id_str: str) -> bool:
+        """Lookup collection trust status with per-request caching."""
+        if coll_id_str in trust_cache:
+            return trust_cache[coll_id_str]
+        try:
+            coll = await collection_repo.get(UUID(coll_id_str))
+            trusted = getattr(coll, "is_trusted", False) if coll else False
+        except Exception:
+            trusted = False
+        trust_cache[coll_id_str] = trusted
+        logger.debug(f"[TRUST] collection={coll_id_str} is_trusted={trusted}")
+        return trusted
 
     for i, hr in enumerate(hybrid_results):
         doc = hr.document
@@ -325,6 +373,9 @@ async def search(
             except Exception as e:
                 logger.warning(f"Failed to fetch context for chunk {i}: {e}")
 
+        # Lookup trust status for this result's collection (M4)
+        source_trusted = await _get_collection_trust(coll_id) if coll_id else False
+
         results.append(SearchResultSchema(
             id=f"chunk_{i}",
             document_id=UUID(doc_id) if doc_id else UUID("00000000-0000-0000-0000-000000000000"),
@@ -335,8 +386,9 @@ async def search(
             page=metadata.get("page"),
             section=section,
             verified=True,  # Always true - result came from indexed document
+            source_trusted=source_trusted,
             scores=SearchScoresSchema(
-                semantic_score=normalized_semantic,  # Use normalized version with 5% floor
+                semantic_score=normalized_semantic,
                 bm25_score=normalized_bm25,
                 rerank_score=hr.rerank_score,
                 final_score=hr.final_score,
@@ -434,7 +486,7 @@ async def search(
                 prompt_key=prompt_key,
             )
             answer = qa_chain.generate_answer(
-                question=request.query,
+                question=search_query,
                 context=context_docs,
             )
             logger.info(f"RAG answer generated: {len(answer)} characters using {answer_provider}/{answer_model_used}")
@@ -550,8 +602,27 @@ async def search(
             logger.debug(f"Injection detection for response failed: {e}")
             # Non-blocking - continue without warning
 
+    # =================================================================
+    # Trust Warning for AI Answer (M4)
+    # =================================================================
+    untrusted_sources_in_answer = False
+    untrusted_source_names: list[str] = []
+
+    if answer and high_confidence_results:
+        # Check trust status of sources used in answer (top 3)
+        answer_sources = high_confidence_results[:3]
+        for r in answer_sources:
+            if not r.source_trusted:
+                if r.collection_name not in untrusted_source_names:
+                    untrusted_source_names.append(r.collection_name)
+        untrusted_sources_in_answer = len(untrusted_source_names) > 0
+        if untrusted_sources_in_answer:
+            logger.info(
+                f"[TRUST] AI answer uses untrusted sources: {untrusted_source_names}"
+            )
+
     return SearchResponse(
-        query=request.query,
+        query=search_query,
         results=high_confidence_results,
         low_confidence_results=low_confidence_results,
         low_confidence_count=len(low_confidence_results),
@@ -572,4 +643,11 @@ async def search(
         # Injection warnings (M3A)
         injection_warning=injection_warning,
         injection_details=injection_details,
+        # Input sanitization (M3B)
+        sanitization_applied=sanitization_applied,
+        # Note: original_query intentionally omitted from response to avoid
+        # leaking injection payloads back to attackers. Logged server-side only.
+        # Trust boundaries (M4)
+        untrusted_sources_in_answer=untrusted_sources_in_answer,
+        untrusted_source_names=untrusted_source_names,
     )

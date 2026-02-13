@@ -49,6 +49,10 @@ class CollectionBase(BaseModel):
     description: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_")
     settings: CollectionSettingsSchema = Field(default_factory=CollectionSettingsSchema)
+    is_trusted: bool = Field(
+        default=False,
+        description="Whether this collection is from a trusted/verified source"
+    )
 
 
 class CollectionCreate(CollectionBase):
@@ -64,6 +68,10 @@ class CollectionUpdate(BaseModel):
     description: str | None = None
     metadata: dict[str, Any] | None = None
     settings: CollectionSettingsSchema | None = None
+    is_trusted: bool | None = Field(
+        default=None,
+        description="Whether this collection is from a trusted/verified source"
+    )
 
 
 class CollectionResponse(CollectionBase):
@@ -91,6 +99,7 @@ class CollectionResponse(CollectionBase):
             description=model.description,
             metadata=model.metadata_,
             settings=model.settings,
+            is_trusted=getattr(model, "is_trusted", False),
             document_count=model.document_count,
             chunk_count=model.chunk_count,
             created_at=model.created_at,
@@ -252,6 +261,10 @@ class SearchResultSchema(BaseModel):
         default=True,
         description="True if result is from indexed document (not hallucinated)"
     )
+    source_trusted: bool = Field(
+        default=False,
+        description="Whether the source collection is marked as trusted"
+    )
     scores: SearchScoresSchema
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Context expansion fields
@@ -371,6 +384,22 @@ class SearchResponse(BaseModel):
     injection_details: dict | None = Field(
         default=None,
         description="Details about detected patterns (query and/or chunks)"
+    )
+
+    # Input sanitization (M3B)
+    sanitization_applied: bool = Field(
+        default=False,
+        description="True if injection patterns were stripped from the query"
+    )
+
+    # Trust boundaries (M4)
+    untrusted_sources_in_answer: bool = Field(
+        default=False,
+        description="True if AI answer includes content from untrusted collections"
+    )
+    untrusted_source_names: list[str] = Field(
+        default_factory=list,
+        description="Names of untrusted collections used in AI answer"
     )
 
 

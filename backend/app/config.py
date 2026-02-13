@@ -24,6 +24,7 @@ IMPORTANT: Do NOT add user-configurable settings here. They belong in DB Setting
 import logging
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,17 @@ class Settings(BaseSettings):
     # Feature Flags (Safety Controls)
     # Set to False to disable injection detection (rollback)
     enable_injection_detection: bool = True
+    # Set to False to disable input sanitization (rollback)
+    enable_input_sanitization: bool = True
+    # Minimum pattern weight to trigger sanitization stripping (0.0-1.0)
+    sanitization_threshold: float = 0.8
+
+    @field_validator("sanitization_threshold")
+    @classmethod
+    def _validate_threshold(cls, v: float) -> float:
+        if not 0.0 <= v <= 1.0:
+            raise ValueError("sanitization_threshold must be between 0.0 and 1.0")
+        return v
 
     # ==========================================================================
     # API Keys (Secrets - NEVER expose in UI)

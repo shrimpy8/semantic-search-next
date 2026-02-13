@@ -65,6 +65,7 @@ async def create_collection(
         description=data.description,
         metadata_=data.metadata,
         settings=data.settings.model_dump(),
+        is_trusted=data.is_trusted,
     )
     collection = await repo.create(collection)
 
@@ -158,6 +159,8 @@ async def update_collection(
         collection.metadata_ = data.metadata
     if data.settings is not None:
         collection.settings = data.settings.model_dump()
+    if data.is_trusted is not None:
+        collection.is_trusted = data.is_trusted
 
     collection = await repo.update(collection)
     logger.info(f"Updated collection: {collection_id}")

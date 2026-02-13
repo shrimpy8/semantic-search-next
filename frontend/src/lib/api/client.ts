@@ -146,7 +146,13 @@ async function handleResponse<T>(response: Response, method: string, endpoint: s
     } catch {
       data = null;
     }
-    debug.error('API', `${method} ${endpoint} failed: ${response.status}`, data);
+    // Use warn for client errors (4xx) to avoid triggering Next.js dev overlay;
+    // reserve error for server errors (5xx) which indicate real problems
+    if (response.status >= 500) {
+      debug.error('API', `${method} ${endpoint} failed: ${response.status}`, data);
+    } else {
+      debug.warn('API', `${method} ${endpoint} failed: ${response.status}`, data);
+    }
     throw new ApiError(response.status, response.statusText, data);
   }
   const result = await response.json();
