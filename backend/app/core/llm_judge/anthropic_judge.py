@@ -1,8 +1,6 @@
 """Anthropic LLM Judge implementation."""
 
-import json
 import logging
-import re
 
 from anthropic import AsyncAnthropic
 
@@ -13,6 +11,12 @@ from app.core.llm_judge.base import (
     BaseLLMJudge,
     RetrievalEvalResult,
     load_prompts,
+)
+from app.core.llm_judge.output_parser import parse_llm_json
+from app.core.llm_judge.schemas import (
+    AnswerEvalOutput,
+    GroundTruthOutput,
+    RetrievalEvalOutput,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,65 +76,18 @@ class AnthropicJudge(BaseLLMJudge):
         settings = get_settings()
         return bool(settings.anthropic_api_key)
 
-    def _extract_json(self, text: str) -> dict:
-        """Extract JSON from response text.
-
-        Claude may include markdown code blocks or explanatory text,
-        so we need to extract just the JSON object.
-
-        Args:
-            text: Raw response text
-
-        Returns:
-            Parsed JSON as dict
-
-        Raises:
-            JudgeResponseError: If no valid JSON found
-        """
-        # Try to parse the whole response as JSON first
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-
-        # Look for JSON in code blocks
-        json_patterns = [
-            r"```json\s*\n(.*?)\n```",  # ```json ... ```
-            r"```\s*\n(.*?)\n```",  # ``` ... ```
-            r"\{[^{}]*\}",  # Simple object match
-        ]
-
-        for pattern in json_patterns:
-            matches = re.findall(pattern, text, re.DOTALL)
-            for match in matches:
-                try:
-                    return json.loads(match)
-                except json.JSONDecodeError:
-                    continue
-
-        # Try to find any JSON-like structure
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start != -1 and end > start:
-            try:
-                return json.loads(text[start:end])
-            except json.JSONDecodeError:
-                pass
-
-        raise JudgeResponseError("Could not extract valid JSON from response", text)
-
-    async def _call_llm(self, system_prompt: str, user_prompt: str) -> dict:
-        """Make an LLM call and parse JSON response.
+    async def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
+        """Make an LLM call and return raw text response.
 
         Args:
             system_prompt: System message
             user_prompt: User message
 
         Returns:
-            Parsed JSON response as dict
+            Raw response text (JSON extraction done by caller)
 
         Raises:
-            JudgeResponseError: If response is not valid JSON
+            JudgeResponseError: If response is empty
         """
         client = self._get_client()
 
@@ -157,13 +114,8 @@ class AnthropicJudge(BaseLLMJudge):
         if not content:
             raise JudgeResponseError("Empty response from judge")
 
-        try:
-            result = self._extract_json(content)
-            logger.debug(f"Judge response: {result}")
-            return result
-        except JudgeResponseError:
-            logger.error(f"Failed to parse judge response: {content}")
-            raise
+        logger.debug(f"Anthropic raw response length: {len(content)}")
+        return content
 
     async def evaluate_retrieval(
         self,
@@ -179,13 +131,16 @@ class AnthropicJudge(BaseLLMJudge):
             chunks=self._format_chunks(chunks),
         )
 
-        result = await self._call_llm(system_prompt, user_prompt)
+        raw_text = await self._call_llm(system_prompt, user_prompt)
+
+        # Parse and validate with shared parser + Pydantic schema (M3C)
+        validated = parse_llm_json(raw_text, RetrievalEvalOutput)
 
         return RetrievalEvalResult(
-            context_relevance=self._clamp_score(result.get("context_relevance", 0.0)),
-            context_precision=self._clamp_score(result.get("context_precision", 0.0)),
-            context_coverage=self._clamp_score(result.get("context_coverage", 0.0)),
-            reasoning=result.get("reasoning", ""),
+            context_relevance=self._clamp_score(validated.context_relevance),
+            context_precision=self._clamp_score(validated.context_precision),
+            context_coverage=self._clamp_score(validated.context_coverage),
+            reasoning=validated.reasoning,
         )
 
     async def evaluate_answer(
@@ -205,25 +160,31 @@ class AnthropicJudge(BaseLLMJudge):
             answer=answer,
         )
 
-        result = await self._call_llm(system_prompt, user_prompt)
+        raw_text = await self._call_llm(system_prompt, user_prompt)
+
+        # Parse and validate with shared parser + Pydantic schema (M3C)
+        validated = parse_llm_json(raw_text, AnswerEvalOutput)
 
         # Get ground truth similarity if expected answer provided
         ground_truth_similarity = None
         gt_reasoning = ""
         if expected_answer:
-            gt_result = await self._evaluate_ground_truth(query, answer, expected_answer)
-            ground_truth_similarity = gt_result.get("ground_truth_similarity")
-            gt_reasoning = gt_result.get("reasoning", "")
+            gt_raw = await self._call_llm(
+                *self._build_ground_truth_prompts(query, answer, expected_answer)
+            )
+            gt_validated = parse_llm_json(gt_raw, GroundTruthOutput)
+            ground_truth_similarity = gt_validated.ground_truth_similarity
+            gt_reasoning = gt_validated.reasoning
 
         # Combine reasoning
-        reasoning = result.get("reasoning", "")
+        reasoning = validated.reasoning
         if gt_reasoning:
             reasoning += f"\n\nGround Truth Comparison: {gt_reasoning}"
 
         return AnswerEvalResult(
-            faithfulness=self._clamp_score(result.get("faithfulness", 0.0)),
-            answer_relevance=self._clamp_score(result.get("answer_relevance", 0.0)),
-            completeness=self._clamp_score(result.get("completeness", 0.0)),
+            faithfulness=self._clamp_score(validated.faithfulness),
+            answer_relevance=self._clamp_score(validated.answer_relevance),
+            completeness=self._clamp_score(validated.completeness),
             ground_truth_similarity=(
                 self._clamp_score(ground_truth_similarity)
                 if ground_truth_similarity is not None
@@ -232,13 +193,13 @@ class AnthropicJudge(BaseLLMJudge):
             reasoning=reasoning,
         )
 
-    async def _evaluate_ground_truth(
+    def _build_ground_truth_prompts(
         self,
         query: str,
         generated_answer: str,
         expected_answer: str,
-    ) -> dict:
-        """Evaluate similarity to ground truth answer."""
+    ) -> tuple[str, str]:
+        """Build system and user prompts for ground truth evaluation."""
         prompts = self._prompts["ground_truth_comparison"]
 
         system_prompt = prompts["system"]
@@ -248,4 +209,4 @@ class AnthropicJudge(BaseLLMJudge):
             generated_answer=generated_answer,
         )
 
-        return await self._call_llm(system_prompt, user_prompt)
+        return system_prompt, user_prompt

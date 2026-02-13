@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, ChevronDown, ChevronUp, CheckCircle2, Hash, Layers, BarChart2, ExternalLink } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, CheckCircle2, Hash, Layers, BarChart2, ExternalLink, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
 import {
@@ -119,19 +119,32 @@ export function SearchResultCard({ result, rank, defaultShowScores = false }: Se
                 </span>
               )}
               {result.collection_name && (
-                <span className="text-muted-foreground/70">
+                <span className="text-muted-foreground/70 inline-flex items-center gap-1">
                   in {result.collection_name}
+                  {result.source_trusted ? (
+                    <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" role="status" aria-label="From trusted source">
+                      <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                      <span className="text-[11px]">Trusted</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-0.5 text-muted-foreground/50" role="status" aria-label="From unverified source">
+                      <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                      <span className="text-[11px]">Unverified</span>
+                    </span>
+                  )}
                 </span>
               )}
               <RelevanceBadge percent={relevancePercent} />
               {hasChunkPosition && (
-                <ChunkPositionBadge
-                  index={result.chunk_index!}
-                  total={result.total_chunks!}
-                />
+                <span className="hidden sm:inline-flex">
+                  <ChunkPositionBadge
+                    index={result.chunk_index!}
+                    total={result.total_chunks!}
+                  />
+                </span>
               )}
               {result.verified && (
-                <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                <span className="hidden sm:inline-flex items-center gap-1 text-green-600 dark:text-green-400">
                   <CheckCircle2 className="h-3 w-3" />
                   Verified
                 </span>

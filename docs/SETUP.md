@@ -133,6 +133,16 @@ Open http://localhost:3000 in your browser.
 3. Set **Eval Judge Provider** to `anthropic` and model to `claude-sonnet-4-20250514`
 4. Click **Save Settings**
 
+## Security Features (Enabled by Default)
+
+Input sanitization, injection detection, and trust boundaries are enabled out of the box. No configuration needed. To customize:
+
+- **Disable sanitization**: Set `ENABLE_INPUT_SANITIZATION=false` in `backend/.env`
+- **Disable detection**: Set `ENABLE_INJECTION_DETECTION=false` in `backend/.env`
+- **Trust boundaries**: Mark collections as trusted/unverified in the collection edit dialog
+
+See [INFRASTRUCTURE.md](INFRASTRUCTURE.md#security-configuration) for full details.
+
 ## Verify Everything Works
 
 1. Go to **Collections** and create a new collection

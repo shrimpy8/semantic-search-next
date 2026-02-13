@@ -19,6 +19,9 @@ This document tracks implementation status, security milestones, and outstanding
 | Security (M1) | **Complete** | Prompt hardening across all YAML files |
 | Security (M2) | **Complete** | Injection detection (observability mode) |
 | Security (M3A) | **Complete** | Soft warnings in UI (threshold > 0.7) |
+| Security (M3B) | **Complete** | Input sanitization with NFKC normalization |
+| Security (M3C) | **Complete** | Strict Pydantic output parsing for all LLM responses |
+| Security (M4) | **Complete** | Trust boundaries with UI indicators and answer warnings |
 | Lint/Type | **Complete** | All issues resolved |
 
 ---
@@ -96,6 +99,69 @@ User-facing warnings for high-confidence detections (score > 0.7):
 - Message: "Potential content issue detected" with details
 - Advice to verify AI answer carefully
 
+#### Milestone 3B: Input Sanitization (Complete)
+
+Strips high-confidence injection boilerplate from queries before embedding and LLM:
+
+- **Module**: `app/core/input_sanitizer.py`
+- **Integration**: `app/api/v1/search.py` — sanitize between empty-query check and search
+- **Feature flag**: `ENABLE_INPUT_SANITIZATION` (default: true)
+- **Threshold**: `SANITIZATION_THRESHOLD` (default: 0.8)
+
+**Pattern Categories Stripped:**
+| Category | Weight | Example |
+|----------|--------|---------|
+| `delimiter_escape` | 0.9 | `[INST]`, `</system>`, `<user>` |
+| `instruction_override` | 0.8 | "ignore previous instructions" |
+| `system_extraction` | 0.9 | "repeat your system prompt" |
+
+**Anti-Evasion:**
+- NFKC unicode normalization (defeats Cyrillic homoglyphs: е→e, і→i)
+- Zero-width character stripping (U+200B, U+200C, U+200D, U+FEFF, U+2060)
+
+**Response fields:** `sanitization_applied` (bool)
+**Rollback**: Set `ENABLE_INPUT_SANITIZATION=false` in `.env`
+
+#### Milestone 3C: Strict Output Parsing (Complete)
+
+Pydantic schema validation for all LLM responses:
+
+- **Module**: `app/core/output_parser.py`
+- **Coverage**: Answer verifier (claim extraction, verification), evaluator (all judge prompts)
+- **Behavior**: Validates JSON structure, enforces type constraints, fallback extraction on parse failure
+
+**Key Files:**
+| File | What's Validated |
+|------|-----------------|
+| `answer_verifier.py` | Claim extraction lists, verification results |
+| `evaluator.py` | Judge scores (0-1 range), reasoning, all metric fields |
+
+#### Milestone 4: Trust Boundaries (Complete)
+
+Per-collection trust tagging with UI indicators and answer warnings:
+
+- **Model**: `is_trusted` field on Collection (default: false)
+- **API**: `is_trusted` in CollectionCreate, CollectionUpdate, CollectionResponse
+- **Search results**: `source_trusted` field on each result
+- **AI answers**: `untrusted_sources_in_answer` + `untrusted_source_names` in response
+
+**Frontend:**
+- Collection cards show green "Trusted" badge or no badge
+- Search result cards show shield icon with "Trusted"/"Unverified" label
+- AI answer shows amber warning banner when using untrusted sources
+- Edit collection dialog includes trust toggle switch
+
+**Key Files:**
+| File | Purpose |
+|------|---------|
+| `db/models.py` | `is_trusted` column on Collection |
+| `api/schemas.py` | Trust fields on request/response schemas |
+| `api/v1/search.py` | Trust propagation to results and answer warnings |
+| `components/search/search-result-card.tsx` | Trust indicators on results |
+| `components/search/search-results.tsx` | Trust warning banner on AI answers |
+| `components/collections/collection-card.tsx` | Trust badge on collection cards |
+| `components/collections/edit-collection-dialog.tsx` | Trust toggle in edit dialog |
+
 ### Multi-Provider Support (Complete)
 
 | Provider | Embeddings | LLM (Answers) | LLM (Eval) | Reranker |
@@ -118,14 +184,6 @@ User-facing warnings for high-confidence detections (score > 0.7):
 ---
 
 ## Outstanding Items
-
-### Medium Priority (Security)
-
-| Item | Priority | Risk | Description |
-|------|----------|------|-------------|
-| Milestone 3B: Input sanitization | P2 | Medium | Normalize user input (strip injection boilerplate) |
-| Milestone 3C: Strict output parsing | P2 | Medium | JSON schema validation for LLM responses |
-| Milestone 4: Trust boundaries | P2 | Medium/High | Tag sources as trusted/untrusted, UI warnings |
 
 ### Low Priority (Future)
 
@@ -185,6 +243,7 @@ User-facing warnings for high-confidence detections (score > 0.7):
 | 1.2.0 | Dec 2024 | Multi-provider support (Ollama, Anthropic) |
 | 1.3.0 | Dec 2024 | Configuration hierarchy separation |
 | 1.4.0 | Jan 2025 | Prompt injection mitigations (M1 + M2) |
+| 1.5.0 | Feb 2026 | Security hardening: input sanitization (M3B), strict output parsing (M3C), trust boundaries (M4) |
 
 ---
 

@@ -1,8 +1,6 @@
 """Ollama LLM Judge implementation for local evaluation."""
 
-import json
 import logging
-import re
 
 import httpx
 
@@ -13,6 +11,12 @@ from app.core.llm_judge.base import (
     BaseLLMJudge,
     RetrievalEvalResult,
     load_prompts,
+)
+from app.core.llm_judge.output_parser import parse_llm_json
+from app.core.llm_judge.schemas import (
+    AnswerEvalOutput,
+    GroundTruthOutput,
+    RetrievalEvalOutput,
 )
 
 logger = logging.getLogger(__name__)
@@ -128,57 +132,8 @@ class OllamaJudge(BaseLLMJudge):
             logger.warning(f"Ollama availability check failed: {e}")
             return False
 
-    def _extract_json(self, text: str) -> dict:
-        """Extract JSON from response text.
-
-        Ollama models may include markdown code blocks or explanatory text,
-        so we need to extract just the JSON object.
-
-        Args:
-            text: Raw response text
-
-        Returns:
-            Parsed JSON as dict
-
-        Raises:
-            JudgeResponseError: If no valid JSON found
-        """
-        # Try to parse the whole response as JSON first
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-
-        # Look for JSON in code blocks
-        json_patterns = [
-            r"```json\s*\n(.*?)\n```",  # ```json ... ```
-            r"```\s*\n(.*?)\n```",  # ``` ... ```
-            r"\{[^{}]*\}",  # Simple object match
-        ]
-
-        for pattern in json_patterns:
-            matches = re.findall(pattern, text, re.DOTALL)
-            for match in matches:
-                try:
-                    return json.loads(match)
-                except json.JSONDecodeError:
-                    continue
-
-        # Try to find any JSON-like structure
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start != -1 and end > start:
-            try:
-                return json.loads(text[start:end])
-            except json.JSONDecodeError:
-                pass
-
-        raise JudgeResponseError(
-            "Could not extract valid JSON from Ollama response", text
-        )
-
-    async def _call_llm(self, system_prompt: str, user_prompt: str) -> dict:
-        """Make an Ollama API call and parse JSON response.
+    async def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
+        """Make an Ollama API call and return raw text response.
 
         Uses the /api/chat endpoint with the chat completions format.
 
@@ -187,11 +142,11 @@ class OllamaJudge(BaseLLMJudge):
             user_prompt: User message
 
         Returns:
-            Parsed JSON response as dict
+            Raw response text (JSON extraction done by caller)
 
         Raises:
             JudgeUnavailableError: If Ollama server is not reachable
-            JudgeResponseError: If response is not valid JSON
+            JudgeResponseError: If response is empty
         """
         # Add JSON instruction to system prompt (externalized in evaluation.yaml)
         json_guardrail = self._prompts.get("json_guardrail", "")
@@ -237,13 +192,8 @@ class OllamaJudge(BaseLLMJudge):
                 if not content:
                     raise JudgeResponseError("Empty response from Ollama judge")
 
-                try:
-                    parsed = self._extract_json(content)
-                    logger.debug(f"Ollama judge response: {parsed}")
-                    return parsed
-                except JudgeResponseError:
-                    logger.error(f"Failed to parse Ollama response: {content}")
-                    raise
+                logger.debug(f"Ollama raw response length: {len(content)}")
+                return content
 
         except httpx.ConnectError as e:
             logger.error(f"Cannot connect to Ollama: {e}")
@@ -282,13 +232,16 @@ class OllamaJudge(BaseLLMJudge):
             chunks=self._format_chunks(chunks),
         )
 
-        result = await self._call_llm(system_prompt, user_prompt)
+        raw_text = await self._call_llm(system_prompt, user_prompt)
+
+        # Parse and validate with shared parser + Pydantic schema (M3C)
+        validated = parse_llm_json(raw_text, RetrievalEvalOutput)
 
         return RetrievalEvalResult(
-            context_relevance=self._clamp_score(result.get("context_relevance", 0.0)),
-            context_precision=self._clamp_score(result.get("context_precision", 0.0)),
-            context_coverage=self._clamp_score(result.get("context_coverage", 0.0)),
-            reasoning=result.get("reasoning", ""),
+            context_relevance=self._clamp_score(validated.context_relevance),
+            context_precision=self._clamp_score(validated.context_precision),
+            context_coverage=self._clamp_score(validated.context_coverage),
+            reasoning=validated.reasoning,
         )
 
     async def evaluate_answer(
@@ -318,25 +271,31 @@ class OllamaJudge(BaseLLMJudge):
             answer=answer,
         )
 
-        result = await self._call_llm(system_prompt, user_prompt)
+        raw_text = await self._call_llm(system_prompt, user_prompt)
+
+        # Parse and validate with shared parser + Pydantic schema (M3C)
+        validated = parse_llm_json(raw_text, AnswerEvalOutput)
 
         # Get ground truth similarity if expected answer provided
         ground_truth_similarity = None
         gt_reasoning = ""
         if expected_answer:
-            gt_result = await self._evaluate_ground_truth(query, answer, expected_answer)
-            ground_truth_similarity = gt_result.get("ground_truth_similarity")
-            gt_reasoning = gt_result.get("reasoning", "")
+            gt_raw = await self._call_llm(
+                *self._build_ground_truth_prompts(query, answer, expected_answer)
+            )
+            gt_validated = parse_llm_json(gt_raw, GroundTruthOutput)
+            ground_truth_similarity = gt_validated.ground_truth_similarity
+            gt_reasoning = gt_validated.reasoning
 
         # Combine reasoning
-        reasoning = result.get("reasoning", "")
+        reasoning = validated.reasoning
         if gt_reasoning:
             reasoning += f"\n\nGround Truth Comparison: {gt_reasoning}"
 
         return AnswerEvalResult(
-            faithfulness=self._clamp_score(result.get("faithfulness", 0.0)),
-            answer_relevance=self._clamp_score(result.get("answer_relevance", 0.0)),
-            completeness=self._clamp_score(result.get("completeness", 0.0)),
+            faithfulness=self._clamp_score(validated.faithfulness),
+            answer_relevance=self._clamp_score(validated.answer_relevance),
+            completeness=self._clamp_score(validated.completeness),
             ground_truth_similarity=(
                 self._clamp_score(ground_truth_similarity)
                 if ground_truth_similarity is not None
@@ -345,22 +304,13 @@ class OllamaJudge(BaseLLMJudge):
             reasoning=reasoning,
         )
 
-    async def _evaluate_ground_truth(
+    def _build_ground_truth_prompts(
         self,
         query: str,
         generated_answer: str,
         expected_answer: str,
-    ) -> dict:
-        """Evaluate similarity to ground truth answer.
-
-        Args:
-            query: The original question
-            generated_answer: The LLM-generated answer
-            expected_answer: The expected/gold standard answer
-
-        Returns:
-            Dict with ground_truth_similarity score and reasoning
-        """
+    ) -> tuple[str, str]:
+        """Build system and user prompts for ground truth evaluation."""
         prompts = self._prompts["ground_truth_comparison"]
 
         system_prompt = prompts["system"]
@@ -370,4 +320,4 @@ class OllamaJudge(BaseLLMJudge):
             generated_answer=generated_answer,
         )
 
-        return await self._call_llm(system_prompt, user_prompt)
+        return system_prompt, user_prompt

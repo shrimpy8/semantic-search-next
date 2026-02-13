@@ -53,7 +53,7 @@ This is a production-grade semantic search system implementing **hybrid retrieva
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `collections` | Document collections | id, name, description, settings, document_count, chunk_count |
+| `collections` | Document collections | id, name, description, settings, document_count, chunk_count, is_trusted |
 | `documents` | Uploaded files metadata | id, collection_id, filename, file_hash, status, page_count |
 | `settings` | Application configuration | search defaults, display options, min_score_threshold |
 | `search_queries` | Search analytics | query_text, latency_ms, results_count |
@@ -203,6 +203,25 @@ User Query: "How does authentication work?"
          │
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
+│  0. SECURITY LAYER                                              │
+│                                                                 │
+│  ┌─────────────────────┐    ┌─────────────────────┐             │
+│  │  Input Sanitization │    │ Injection Detection  │             │
+│  │  (M3B)              │    │ (M3A — observe-only) │             │
+│  │                     │    │                      │             │
+│  │  • NFKC normalize   │    │  • Pattern scanning  │             │
+│  │  • Strip zero-width │    │  • Weighted scoring   │             │
+│  │  • Remove [INST],   │    │  • Soft UI warnings  │             │
+│  │    </system>, etc.  │    │  • Never blocks      │             │
+│  └──────────┬──────────┘    └──────────┬───────────┘             │
+│             │ sanitized query          │ injection_warning       │
+│             └──────────┬───────────────┘                         │
+│                        ▼                                         │
+│  Query → sanitized query (used for embedding + RAG)             │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
 │  1. QUERY EMBEDDING                                             │
 │     • OpenAI text-embedding-3-large                             │
 │     • Same model as document embeddings for consistency         │
@@ -285,6 +304,7 @@ User Query: "How does authentication work?"
 │    "content": "Authentication uses JWT tokens...",              │
 │    "document_name": "security-guide.pdf",                       │
 │    "collection_name": "Documentation",                          │
+│    "source_trusted": true,      // Trust boundary status        │
 │    "page": 5,                                                   │
 │    "scores": {                                                  │
 │      "semantic_score": 0.85,   // Normalized 0-1                │
@@ -293,6 +313,15 @@ User Query: "How does authentication work?"
 │      "final_score": 0.92,      // Used for ranking/filtering    │
 │      "relevance_percent": 92   // Display value (0-100%)        │
 │    }                                                            │
+│  }                                                              │
+│                                                                 │
+│  Security fields (appended to response):                        │
+│  {                                                              │
+│    "injection_warning": false,                                  │
+│    "injection_details": null,                                   │
+│    "sanitization_applied": false,                               │
+│    "untrusted_sources_in_answer": false,                        │
+│    "untrusted_source_names": []                                 │
 │  }                                                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -534,7 +563,10 @@ semantic-search-next/
 │   │   │   ├── hybrid_retriever.py   # RRF fusion logic
 │   │   │   ├── bm25_retriever.py     # BM25 implementation
 │   │   │   ├── reranker.py           # Jina/Cohere reranking
-│   │   │   └── document_processor.py # Chunking logic
+│   │   │   ├── document_processor.py # Chunking logic
+│   │   │   ├── input_sanitizer.py    # Query sanitization (M3B)
+│   │   │   ├── injection_detector.py # Injection pattern detection (M3A)
+│   │   │   └── output_parser.py      # Strict LLM output parsing (M3C)
 │   │   ├── db/
 │   │   │   ├── models.py             # SQLAlchemy models
 │   │   │   ├── session.py            # Database connection
@@ -590,6 +622,11 @@ CHROMA_PORT=8000
 JINA_API_KEY=jina_...
 COHERE_API_KEY=...
 
+# Security (all enabled by default)
+ENABLE_INJECTION_DETECTION=true
+ENABLE_INPUT_SANITIZATION=true
+SANITIZATION_THRESHOLD=0.8
+
 # Retrieval Defaults
 DEFAULT_HYBRID_ALPHA=0.5
 USE_RERANKING=true
@@ -626,7 +663,15 @@ Using Jina/Cohere APIs vs. local cross-encoder models.
 - **Pro:** High quality, no GPU required
 - **Con:** Latency, API costs, external dependency
 
-### 5. No Original File Storage
+### 5. Layered Security Pipeline
+Security is applied as a pipeline before and after the core search logic:
+- **Pre-search:** Input sanitization strips injection boilerplate (NFKC normalized), injection detector scans for suspicious patterns
+- **Post-search:** Chunk-level injection scanning, trust boundary checks on sources used in AI answers
+- **LLM output:** All LLM responses (answers, verification, evaluation) validated through Pydantic schemas with fallback extraction
+- **Pro:** Defense in depth — sanitization + detection + output validation + trust warnings
+- **Con:** Slight latency increase (~5ms for sanitization + detection)
+
+### 6. No Original File Storage
 Discarding original files after chunking.
 - **Pro:** Lower storage costs, simpler architecture
 - **Con:** Cannot re-download or re-process documents

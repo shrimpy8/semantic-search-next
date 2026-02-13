@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { FileText, MoreVertical, Pencil, Trash2, FolderOpen, Upload, ArrowRight } from 'lucide-react';
+import { FileText, MoreVertical, Pencil, Trash2, FolderOpen, Upload, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -48,6 +48,17 @@ export function CollectionCard({ collection }: CollectionCardProps) {
                 >
                   {collection.name}
                 </Link>
+                {collection.is_trusted && (
+                  <span
+                    className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded text-[11px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 align-middle"
+                    role="status"
+                    aria-label="This collection is a trusted source"
+                    title="This collection is marked as a trusted source"
+                  >
+                    <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                    Trusted
+                  </span>
+                )}
               </CardTitle>
               <CardDescription className="line-clamp-2 mt-1">
                 {collection.description || 'No description'}

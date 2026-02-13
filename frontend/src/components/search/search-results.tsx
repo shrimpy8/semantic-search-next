@@ -5,7 +5,7 @@ import { SearchResultCard } from './search-result-card';
 import { ConfidenceBadge } from './confidence-badge';
 import { AnswerWithCitations } from './answer-with-citations';
 import { type SearchResponse } from '@/lib/api';
-import { Clock, Search, Sparkles, Lightbulb, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, FlaskConical } from 'lucide-react';
+import { Clock, Search, Sparkles, Lightbulb, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, FlaskConical, ShieldAlert } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -283,7 +283,7 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {data.answer_verification ? (
               <AnswerWithCitations
                 answer={data.answer}
@@ -293,6 +293,20 @@ export function SearchResults({ data, isLoading }: SearchResultsProps) {
               />
             ) : (
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{data.answer}</p>
+            )}
+
+            {/* Trust Warning Banner (M4) */}
+            {data.untrusted_sources_in_answer && data.untrusted_source_names && data.untrusted_source_names.length > 0 && (
+              <div
+                className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800"
+                role="alert"
+                aria-label="Unverified sources warning"
+              >
+                <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  This answer includes content from unverified sources ({data.untrusted_source_names.join(', ')}). Verify claims independently. You can mark collections as trusted in the collection settings.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

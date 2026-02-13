@@ -12,6 +12,7 @@ const mockResult: SearchResult = {
   page: 5,
   section: 'Introduction',
   verified: true,
+  source_trusted: false,
   scores: {
     semantic_score: 0.92,
     bm25_score: 0.88,
@@ -84,5 +85,28 @@ describe('SearchResultCard', () => {
     expect(screen.getByText('Semantic')).toBeInTheDocument();
     expect(screen.getByText('Keyword')).toBeInTheDocument();
     expect(screen.getByText('Rerank')).toBeInTheDocument();
+  });
+
+  it('shows unverified indicator for untrusted sources', () => {
+    const untrustedResult = { ...mockResult, source_trusted: false };
+    render(<SearchResultCard result={untrustedResult} rank={1} />);
+
+    expect(screen.getByText('Unverified')).toBeInTheDocument();
+  });
+
+  it('shows trusted indicator for trusted sources', () => {
+    const trustedResult = { ...mockResult, source_trusted: true };
+    render(<SearchResultCard result={trustedResult} rank={1} />);
+
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
+    // When source_trusted is true, the ShieldCheck icon is rendered (no "Unverified" text)
+    expect(screen.getByTitle('From trusted source')).toBeInTheDocument();
+  });
+
+  it('does not show unverified indicator for trusted sources', () => {
+    const trustedResult = { ...mockResult, source_trusted: true };
+    render(<SearchResultCard result={trustedResult} rank={1} />);
+
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
   });
 });

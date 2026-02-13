@@ -641,6 +641,35 @@ curl -s http://localhost:8080/api/v1/health
 | `balanced` | 0.5 | true | Equal weight to semantic and keyword, good default |
 | `high_recall` | 0.3 | true | Emphasizes keyword matching, better for exploratory search |
 
+## Security Hardening
+
+The application includes layered security protections for the RAG pipeline:
+
+### Input Sanitization
+User queries are sanitized before reaching embedding and LLM providers. High-confidence injection patterns (prompt delimiters like `[INST]`, instruction overrides, system extraction attempts) are stripped automatically. Includes NFKC unicode normalization to defeat homoglyph evasion (e.g., Cyrillic characters) and zero-width character stripping.
+
+### Injection Detection
+Queries and retrieved document chunks are scanned for prompt injection patterns using a weighted pattern detector. When suspicious patterns are detected, a warning banner is shown to the user without blocking results. This is observe-only — it does not modify content.
+
+### Strict Output Parsing
+All LLM responses (AI answers, claim verification, evaluation judgments) are validated through Pydantic schemas with fallback extraction. This prevents malformed or manipulated LLM output from propagating through the system.
+
+### Trust Boundaries
+Collections can be marked as **Trusted** or **Unverified**. Trust status flows through to search results and AI answers:
+- Search result cards show trust indicators (shield icons with labels)
+- AI answers that use content from unverified sources display a warning banner
+- Trust status is editable in collection settings
+
+### Configuration
+
+These features are controlled via environment variables in `backend/.env`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_INJECTION_DETECTION` | `true` | Enable/disable injection pattern scanning |
+| `ENABLE_INPUT_SANITIZATION` | `true` | Enable/disable query sanitization |
+| `SANITIZATION_THRESHOLD` | `0.8` | Minimum pattern weight (0.0-1.0) to trigger stripping |
+
 ## Known Considerations
 
 - **BM25 Cache**: Automatically invalidated when documents are uploaded/deleted

@@ -13,6 +13,11 @@ from app.core.llm_judge.base import (
     RetrievalEvalResult,
     load_prompts,
 )
+from app.core.llm_judge.schemas import (
+    AnswerEvalOutput,
+    GroundTruthOutput,
+    RetrievalEvalOutput,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,11 +127,14 @@ class OpenAIJudge(BaseLLMJudge):
 
         result = await self._call_llm(system_prompt, user_prompt)
 
+        # Validate against Pydantic schema (M3C)
+        validated = RetrievalEvalOutput.model_validate(result)
+
         return RetrievalEvalResult(
-            context_relevance=self._clamp_score(result.get("context_relevance", 0.0)),
-            context_precision=self._clamp_score(result.get("context_precision", 0.0)),
-            context_coverage=self._clamp_score(result.get("context_coverage", 0.0)),
-            reasoning=result.get("reasoning", ""),
+            context_relevance=self._clamp_score(validated.context_relevance),
+            context_precision=self._clamp_score(validated.context_precision),
+            context_coverage=self._clamp_score(validated.context_coverage),
+            reasoning=validated.reasoning,
         )
 
     async def evaluate_answer(
@@ -148,23 +156,27 @@ class OpenAIJudge(BaseLLMJudge):
 
         result = await self._call_llm(system_prompt, user_prompt)
 
+        # Validate against Pydantic schema (M3C)
+        validated = AnswerEvalOutput.model_validate(result)
+
         # Get ground truth similarity if expected answer provided
         ground_truth_similarity = None
         gt_reasoning = ""
         if expected_answer:
             gt_result = await self._evaluate_ground_truth(query, answer, expected_answer)
-            ground_truth_similarity = gt_result.get("ground_truth_similarity")
-            gt_reasoning = gt_result.get("reasoning", "")
+            gt_validated = GroundTruthOutput.model_validate(gt_result)
+            ground_truth_similarity = gt_validated.ground_truth_similarity
+            gt_reasoning = gt_validated.reasoning
 
         # Combine reasoning
-        reasoning = result.get("reasoning", "")
+        reasoning = validated.reasoning
         if gt_reasoning:
             reasoning += f"\n\nGround Truth Comparison: {gt_reasoning}"
 
         return AnswerEvalResult(
-            faithfulness=self._clamp_score(result.get("faithfulness", 0.0)),
-            answer_relevance=self._clamp_score(result.get("answer_relevance", 0.0)),
-            completeness=self._clamp_score(result.get("completeness", 0.0)),
+            faithfulness=self._clamp_score(validated.faithfulness),
+            answer_relevance=self._clamp_score(validated.answer_relevance),
+            completeness=self._clamp_score(validated.completeness),
             ground_truth_similarity=(
                 self._clamp_score(ground_truth_similarity)
                 if ground_truth_similarity is not None
