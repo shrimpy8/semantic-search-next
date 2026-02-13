@@ -1,7 +1,7 @@
 # Configuration Strategy
 
 > **Purpose**: Define the separation between `.env` configuration and DB Settings for all configurable options.
-> **Status**: **IMPLEMENTED** - December 2024
+> **Status**: **IMPLEMENTED**
 
 ---
 
@@ -54,6 +54,11 @@ DEBUG=false
 EVAL_TIMEOUT_SECONDS=30
 EVAL_RETRY_COUNT=2
 EVAL_RETRY_DELAY_MS=1000
+
+# Security (optional)
+ENABLE_INJECTION_DETECTION=true
+ENABLE_INPUT_SANITIZATION=true
+SANITIZATION_THRESHOLD=0.7
 ```
 
 ### User Settings (DB Settings Table)
@@ -62,19 +67,20 @@ These settings are configurable via the Settings page UI:
 
 ```python
 # Embeddings - Provider encoded in model string
-embedding_model: str = "openai:text-embedding-3-large"  # Format: "provider:model"
+embedding_model: str = "text-embedding-3-large"  # Unprefixed defaults to OpenAI;
+                                                  # other providers use "provider:model" format
 
 # AI Answer Generation
 answer_provider: str = "openai"       # openai, anthropic, ollama
 answer_model: str = "gpt-4o-mini"
-answer_style: str = "detailed"        # concise, detailed, technical, conversational
+answer_style: str = "balanced"        # concise, balanced, detailed
 
 # Evaluation Judge
-eval_judge_provider: str = "openai"   # openai, anthropic, ollama
+eval_judge_provider: str = "openai"   # openai, anthropic, ollama, disabled
 eval_judge_model: str = "gpt-4o-mini"
 
 # Reranking
-reranker_provider: str = "auto"       # auto, jina, cohere, none
+reranker_provider: str = "auto"       # auto, jina, cohere
 
 # Document Processing
 chunk_size: int = 1000
@@ -104,21 +110,21 @@ results_per_page: int = 10
 
 | Provider | Model String Format | Available Models |
 |----------|---------------------|------------------|
-| OpenAI | `openai:text-embedding-3-large` | text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002 |
-| Ollama | `ollama:nomic-embed-text` | nomic-embed-text, mxbai-embed-large |
-| Jina | `jina:jina-embeddings-v3` | jina-embeddings-v2-base-en, jina-embeddings-v3 |
-| Voyage | `voyage:voyage-large-2` | voyage-large-2, voyage-2 |
-| Cohere | `cohere:embed-english-v3.0` | embed-english-v3.0, embed-multilingual-v3.0 |
+| OpenAI | `text-embedding-3-large` (no prefix, default) | text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002 |
+| Ollama | `ollama:nomic-embed-text` | nomic-embed-text, mxbai-embed-large, and others |
+| Jina | `jina:jina-embeddings-v3` | jina-embeddings-v2-base-en, jina-embeddings-v2-small-en, jina-embeddings-v3 |
+| Voyage | `voyage:voyage-large-2` | voyage-large-2, voyage-2, voyage-code-2, voyage-lite-02-instruct |
+| Cohere | `cohere:embed-english-v3.0` | embed-english-v3.0, embed-multilingual-v3.0, embed-english-light-v3.0 |
 
-**Note**: Embedding provider is extracted from the model string (e.g., `"ollama:nomic-embed-text"` → provider is `"ollama"`).
+**Note**: OpenAI models can omit the provider prefix for backward compatibility. The `parse_model_string()` function in `embeddings.py` handles both `"text-embedding-3-large"` and `"openai:text-embedding-3-large"`, defaulting unprefixed models to OpenAI.
 
 ### Answer Providers
 
 | Provider | Available Models | Recommended |
 |----------|------------------|-------------|
-| OpenAI | gpt-4o-mini, gpt-4o, gpt-4-turbo | gpt-4o-mini |
+| OpenAI | gpt-4o-mini, gpt-4o, gpt-4-turbo, gpt-3.5-turbo | gpt-4o-mini |
 | Anthropic | claude-sonnet-4-20250514, claude-opus-4-20250514 | claude-sonnet-4-20250514 |
-| Ollama | llama3.2, llama3.1:8b, mistral | llama3.2 |
+| Ollama | llama3.2, llama3.1, mistral, mixtral, qwen2.5 | llama3.2 |
 
 ### Evaluation Providers
 
@@ -126,53 +132,50 @@ results_per_page: int = 10
 |----------|------------------|-------------|
 | OpenAI | gpt-4o-mini, gpt-4o | gpt-4o-mini |
 | Anthropic | claude-sonnet-4-20250514, claude-opus-4-20250514 | claude-sonnet-4-20250514 |
-| Ollama | llama3.2, llama3.1:8b, mistral | llama3.1:8b |
+| Ollama | llama3.2, llama3.1 | llama3.2 |
 
 ### Reranker Providers
 
 | Provider | Model | Notes |
 |----------|-------|-------|
-| auto | Automatic selection | Uses Jina (local) first, falls back to Cohere if available |
+| auto | Automatic selection | Uses Cohere if API key available, falls back to Jina (local) |
 | jina | jina-reranker-v2-base-multilingual | Local, no API key needed |
 | cohere | rerank-english-v3.0 | Cloud, requires COHERE_API_KEY |
-| none | Disabled | No reranking |
 
 ---
 
 ## Settings Page UI Structure
 
-The Settings page is organized into logical sections:
+The Settings page is organized into four sections:
 
 ```
 Settings Page
 ├── Search Defaults
-│   ├── Default Preset (balanced/high_precision/high_recall)
-│   ├── Default Results Count (top_k)
-│   ├── Semantic/Keyword Balance (alpha slider)
-│   ├── Use Reranker (toggle)
-│   └── Min Score Threshold (slider)
+│   ├── Hybrid Search Balance (alpha slider)
+│   ├── Retrieval Preset (high_precision/balanced/high_recall)
+│   ├── Results to Retrieve (top_k)
+│   └── Enable Reranking (toggle)
 │
-├── AI Providers
-│   ├── Embeddings
-│   │   └── Model (dropdown with provider:model format)
-│   ├── Answer Generation
-│   │   ├── Provider (dropdown)
-│   │   ├── Model (dropdown, filtered by provider)
-│   │   ├── Style (dropdown: concise/detailed/technical/conversational)
-│   │   └── Enable by Default (toggle)
-│   ├── Evaluation Judge
-│   │   ├── Provider (dropdown)
-│   │   └── Model (dropdown, filtered by provider)
-│   └── Reranker
-│       └── Provider (dropdown: auto/jina/cohere/none)
+├── Display Options
+│   ├── Show Relevance Scores (toggle)
+│   └── Low Confidence Threshold (slider)
 │
-├── Document Processing
-│   ├── Chunk Size (input)
-│   └── Chunk Overlap (input)
+├── AI Answer & Context (full-width card)
+│   ├── Left Column:
+│   │   ├── Generate AI Answers by Default (toggle)
+│   │   ├── Answer Generation LLM (grouped dropdown by provider)
+│   │   └── Answer Style (concise/balanced/detailed card selector)
+│   └── Right Column:
+│       └── Context Window (1/2/3 chunks card selector with preview)
 │
-└── Display
-    ├── Show Score Details (toggle)
-    └── Results Per Page (input)
+└── Advanced Settings (full-width card)
+    ├── Left Column:
+    │   ├── Embedding Model (grouped dropdown by provider with docs links)
+    │   ├── Reranker Provider (auto/jina/cohere)
+    │   └── Evaluation LLM (grouped dropdown, can be disabled)
+    └── Right Column:
+        ├── Chunk Size (color-zone slider: 100-4000)
+        └── Chunk Overlap (color-zone slider: 0-1000)
 ```
 
 ---
@@ -183,13 +186,11 @@ The `/settings/validate` endpoint performs comprehensive cross-validation:
 
 ### Checks Performed
 
-1. **Database Connection**: PostgreSQL connectivity
-2. **ChromaDB Connection**: Vector store availability
-3. **Provider ↔ API Key Validation**:
-   - Answer provider requires corresponding API key (except Ollama)
-   - Eval provider requires corresponding API key (except Ollama)
-   - Embedding provider requires corresponding API key (except Ollama)
-4. **Reranker Validation**: Cohere reranker requires COHERE_API_KEY
+1. **Embedding Provider ↔ API Key**: Embedding provider requires corresponding API key (except Ollama)
+2. **Answer Provider ↔ API Key**: Answer provider requires corresponding API key (except Ollama)
+3. **Eval Provider ↔ API Key**: Eval provider requires corresponding API key (except Ollama)
+4. **Reranker Validation**: Cohere reranker requires COHERE_API_KEY; auto mode checks Cohere first, falls back to Jina
+5. **Ollama Reachability**: If any provider is set to Ollama, checks that the Ollama server is reachable
 
 ### Example Validation Response
 
@@ -224,9 +225,11 @@ The `/settings/validate` endpoint performs comprehensive cross-validation:
 |--------|----------|-------------|
 | `GET` | `/settings` | Get current settings |
 | `PATCH` | `/settings` | Update settings |
+| `POST` | `/settings/reset` | Reset settings to defaults |
 | `GET` | `/settings/validate` | Validate configuration |
 | `GET` | `/settings/embedding-providers` | Get available embedding providers |
 | `GET` | `/settings/llm-models` | Get available LLM models by provider |
+| `GET` | `/settings/providers` | Get all provider availability |
 
 ### LLM Models Response Structure
 
@@ -276,14 +279,28 @@ def is_openai_available(self) -> bool:
 def is_anthropic_available(self) -> bool:
     return bool(self.anthropic_api_key)
 
-def is_ollama_available(self) -> bool:
-    return True  # Ollama is always "available" (checked at runtime)
+def is_cohere_available(self) -> bool:
+    return bool(self.cohere_api_key)
+
+def is_jina_available(self) -> bool:
+    return bool(self.jina_api_key)
+
+def is_voyage_available(self) -> bool:
+    return bool(self.voyage_api_key)
+
+def check_ollama_available(self) -> bool:
+    return True  # Always "available" — checked at runtime via HTTP ping
+
+# Helper methods
+def get_available_llm_providers(self) -> list[str]: ...
+def get_available_embedding_providers(self) -> list[str]: ...
+def get_available_reranker_providers(self) -> list[str]: ...
 ```
 
 The Settings page shows availability indicators:
 - Available providers have a checkmark
 - Unavailable providers show "API key not configured"
-- Ollama shows "Local inference" note
+- Ollama shows "No API key - runs locally" note
 
 ---
 
@@ -294,6 +311,8 @@ The Settings page shows availability indicators:
 Changing the embedding model requires re-indexing all documents because:
 1. Different models produce different vector dimensions
 2. Vectors from different models are not comparable
+
+The Settings page shows a confirmation checkbox when the embedding model is changed, warning the user about re-indexing.
 
 **Process**:
 1. Change embedding model in Settings
@@ -315,7 +334,9 @@ These can be changed at any time without migration:
 |----------|----------|-------|
 | **API Keys** | `.env` | OPENAI_API_KEY, ANTHROPIC_API_KEY, COHERE_API_KEY, etc. |
 | **Infrastructure** | `.env` | Database URLs, server ports, Ollama URL |
-| **Embeddings** | DB Settings | `embedding_model` includes provider prefix |
+| **Security** | `.env` | ENABLE_INJECTION_DETECTION, ENABLE_INPUT_SANITIZATION, SANITIZATION_THRESHOLD |
+| **Timeouts** | `.env` | EVAL_TIMEOUT_SECONDS, EVAL_RETRY_COUNT, EVAL_RETRY_DELAY_MS |
+| **Embeddings** | DB Settings | `embedding_model` (unprefixed = OpenAI, or `provider:model`) |
 | **AI Answers** | DB Settings | `answer_provider` + `answer_model` + `answer_style` |
 | **Eval Judge** | DB Settings | `eval_judge_provider` + `eval_judge_model` |
 | **Reranking** | DB Settings | `reranker_provider` only (model is fixed per provider) |
@@ -325,5 +346,5 @@ These can be changed at any time without migration:
 
 ---
 
-*Document Updated: December 2024*
+*Last Updated: February 2026*
 *Status: Configuration hierarchy fully implemented*
