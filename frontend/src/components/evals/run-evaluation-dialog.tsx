@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   FlaskConical,
   Loader2,
@@ -101,15 +101,22 @@ export function RunEvaluationDialog({
   // Mutation
   const evalMutation = useRunEvaluation();
 
+  // Stable string representation — string primitives compare by value in useEffect deps,
+  // so the effect won't re-fire when the parent passes a new array with identical content.
+  const initialChunksText = useMemo(
+    () => initialChunks.map((c) => c.content).join('\n---\n'),
+    [initialChunks]
+  );
+
   // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
       setQuery(initialQuery);
       setAnswer(initialAnswer);
-      setChunksText(initialChunks.map((c) => c.content).join('\n---\n'));
+      setChunksText(initialChunksText);
       setResult(null);
     }
-  }, [isOpen, initialQuery, initialAnswer, initialChunks]);
+  }, [isOpen, initialQuery, initialAnswer, initialChunksText]);
 
   const parseChunks = (text: string): ChunkForEvaluation[] => {
     return text

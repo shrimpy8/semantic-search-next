@@ -7,6 +7,30 @@ import { ThemeToggle } from './theme-toggle';
 import { HealthIndicator } from './health-indicator';
 import { cn } from '@/lib/utils';
 
+interface NavLinkProps {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function NavLink({ href, active, children, className }: NavLinkProps) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'px-3 py-2 text-sm font-medium rounded-lg transition-all',
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+        className
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function Header() {
   const pathname = usePathname();
 
@@ -30,75 +54,27 @@ export function Header() {
           </Link>
 
           <nav className="flex items-center gap-1">
-            <Link
-              href="/"
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-lg transition-all',
-                isActive('/') && !isActive('/collections')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
+            <NavLink href="/" active={isActive('/') && !isActive('/collections')}>
               Search
-            </Link>
-            <Link
-              href="/collections"
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-lg transition-all',
-                isActive('/collections')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
+            </NavLink>
+            <NavLink href="/collections" active={isActive('/collections')}>
               Collections
-            </Link>
-            <Link
-              href="/analytics"
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5',
-                isActive('/analytics')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
+            </NavLink>
+            <NavLink href="/analytics" active={isActive('/analytics')} className="flex items-center gap-1.5">
               <BarChart3 className="h-3.5 w-3.5" />
               Analytics
-            </Link>
-            <Link
-              href="/evals"
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5',
-                isActive('/evals')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
+            </NavLink>
+            <NavLink href="/evals" active={isActive('/evals')} className="flex items-center gap-1.5">
               <FlaskConical className="h-3.5 w-3.5" />
               Evals
-            </Link>
-            <Link
-              href="/how-it-works"
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5',
-                isActive('/how-it-works')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
+            </NavLink>
+            <NavLink href="/how-it-works" active={isActive('/how-it-works')} className="flex items-center gap-1.5">
               <Lightbulb className="h-3.5 w-3.5" />
               How it Works
-            </Link>
-            <Link
-              href="/settings"
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-lg transition-all',
-                isActive('/settings')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
+            </NavLink>
+            <NavLink href="/settings" active={isActive('/settings')}>
               Settings
-            </Link>
+            </NavLink>
           </nav>
         </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, Command, Zap, Brain, Layers, ArrowRight, FolderOpen, Sparkles, FlaskConical, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,14 +42,16 @@ export default function Home() {
   const { data: collectionsData } = useCollections();
   const { data: settings } = useSettings();
 
-  // Initialize search params from settings when they load
-  // Always sync with settings to respect user's configuration changes
+  // Sync settings on initial load only — re-running on every refetch would
+  // overwrite any preset/topK/alpha/reranker tweaks the user made mid-session.
+  const hasInitialized = useRef(false);
   useEffect(() => {
-    if (settings) {
+    if (settings && !hasInitialized.current) {
       setPreset(settings.default_preset);
       setTopK(settings.default_top_k);
       setAlpha(settings.default_alpha);
       setUseReranker(settings.default_use_reranker);
+      hasInitialized.current = true;
     }
   }, [settings, setPreset, setTopK, setAlpha, setUseReranker]);
 
@@ -94,12 +96,12 @@ export default function Home() {
     }
   };
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setQuery('');
     setSearchResults(null);
     setHasSearched(false);
     searchInputRef.current?.focus();
-  };
+  }, [setQuery, setSearchResults, setHasSearched]);
 
   // Escape to clear search
   useKeyboardShortcut(

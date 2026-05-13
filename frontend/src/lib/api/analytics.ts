@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { buildQueryString } from './utils';
 
 // Search query from history
 export interface SearchQueryRecord {
@@ -86,17 +87,6 @@ export interface TopQueriesParams {
   days?: number;
 }
 
-// Build query string from params
-function buildQueryString(params: Record<string, unknown>): string {
-  const searchParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
-      searchParams.append(key, String(value));
-    }
-  }
-  const queryString = searchParams.toString();
-  return queryString ? `?${queryString}` : '';
-}
 
 export const analyticsApi = {
   /**

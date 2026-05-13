@@ -25,6 +25,39 @@ from app.core.embeddings import EmbeddingFactory
 
 logger = logging.getLogger(__name__)
 
+# ChromaDB has a practical limit on batch delete/get sizes
+_CHROMA_BATCH_SIZE = 5000
+
+
+def compute_adjacent_chunks(
+    chunks: list,
+    chunk_index: int,
+    before: int,
+    after: int,
+) -> dict[str, list]:
+    """Compute adjacent chunks from a sorted list of Document objects."""
+    if not chunks:
+        return {"before": [], "after": []}
+
+    chunks_sorted = sorted(chunks, key=lambda c: c.metadata.get("chunk_index", 0))
+    index_to_chunk = {
+        c.metadata.get("chunk_index", i): c
+        for i, c in enumerate(chunks_sorted)
+    }
+
+    before_chunks = [
+        index_to_chunk[i]
+        for i in range(chunk_index - before, chunk_index)
+        if i >= 0 and i in index_to_chunk
+    ]
+    after_chunks = [
+        index_to_chunk[i]
+        for i in range(chunk_index + 1, chunk_index + after + 1)
+        if i in index_to_chunk
+    ]
+
+    return {"before": before_chunks, "after": after_chunks}
+
 
 class VectorStoreManager:
     """
@@ -276,8 +309,8 @@ class VectorStoreManager:
             self.vector_store = self._initialize_vector_store()
             logger.info("Vector store cleared and recreated")
 
-        except Exception as e:
-            logger.error(f"Error clearing vector store: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error clearing vector store")
             raise
 
     def get_indexed_documents(self) -> list[str]:
@@ -539,6 +572,39 @@ class VectorStoreManager:
             logger.error(f"Error getting chunks for document {document_id}: {e}")
             return []
 
+    def _clear_by_metadata_filter(self, has_collection: bool, log_label: str) -> int:
+        """Delete all chunks matching the metadata filter, processing in batches."""
+        collection = self.vector_store._collection
+        all_results = collection.get(include=["metadatas"])
+        all_ids = all_results.get("ids", [])
+        all_metadatas = all_results.get("metadatas", [])
+
+        ids_to_delete = [
+            all_ids[i]
+            for i, m in enumerate(all_metadatas)
+            if bool(m and "collection_id" in m) == has_collection
+        ]
+
+        if not ids_to_delete:
+            logger.info(f"No {log_label} chunks found to delete")
+            return 0
+
+        total_deleted = 0
+        for i in range(0, len(ids_to_delete), _CHROMA_BATCH_SIZE):
+            batch = ids_to_delete[i:i + _CHROMA_BATCH_SIZE]
+            collection.delete(ids=batch)
+            total_deleted += len(batch)
+
+        logger.info(f"Deleted {total_deleted} {log_label} chunks")
+        return total_deleted
+
+    def _count_by_metadata_filter(self, has_collection: bool) -> int:
+        """Count chunks matching the metadata filter."""
+        collection = self.vector_store._collection
+        all_results = collection.get(include=["metadatas"])
+        all_metadatas = all_results.get("metadatas", [])
+        return sum(1 for m in all_metadatas if bool(m and "collection_id" in m) == has_collection)
+
     def clear_non_collection_documents(self) -> int:
         """
         Clear all documents that are NOT part of any collection.
@@ -554,36 +620,9 @@ class VectorStoreManager:
             >>> print(f"Deleted {deleted} legacy chunks")
         """
         try:
-            collection = self.vector_store._collection
-
-            # Get all documents
-            all_results = collection.get(include=["metadatas"])
-            all_ids = all_results.get("ids", [])
-            all_metadatas = all_results.get("metadatas", [])
-
-            # Find IDs without collection_id
-            ids_to_delete = []
-            for i, metadata in enumerate(all_metadatas):
-                if not metadata or "collection_id" not in metadata:
-                    ids_to_delete.append(all_ids[i])
-
-            if not ids_to_delete:
-                logger.info("No non-collection documents found to delete")
-                return 0
-
-            # Delete in batches (ChromaDB has limits)
-            batch_size = 5000
-            total_deleted = 0
-            for i in range(0, len(ids_to_delete), batch_size):
-                batch = ids_to_delete[i:i + batch_size]
-                collection.delete(ids=batch)
-                total_deleted += len(batch)
-
-            logger.info(f"Deleted {total_deleted} non-collection chunks")
-            return total_deleted
-
-        except Exception as e:
-            logger.error(f"Error clearing non-collection documents: {e}", exc_info=True)
+            return self._clear_by_metadata_filter(has_collection=False, log_label="non-collection")
+        except Exception:
+            logger.exception("Error clearing non-collection documents")
             return 0
 
     def clear_all_collection_documents(self) -> int:
@@ -601,36 +640,9 @@ class VectorStoreManager:
             >>> print(f"Deleted {deleted} collection chunks")
         """
         try:
-            collection = self.vector_store._collection
-
-            # Get all documents
-            all_results = collection.get(include=["metadatas"])
-            all_ids = all_results.get("ids", [])
-            all_metadatas = all_results.get("metadatas", [])
-
-            # Find IDs with collection_id
-            ids_to_delete = []
-            for i, metadata in enumerate(all_metadatas):
-                if metadata and "collection_id" in metadata:
-                    ids_to_delete.append(all_ids[i])
-
-            if not ids_to_delete:
-                logger.info("No collection documents found to delete")
-                return 0
-
-            # Delete in batches (ChromaDB has limits)
-            batch_size = 5000
-            total_deleted = 0
-            for i in range(0, len(ids_to_delete), batch_size):
-                batch = ids_to_delete[i:i + batch_size]
-                collection.delete(ids=batch)
-                total_deleted += len(batch)
-
-            logger.info(f"Deleted {total_deleted} collection chunks")
-            return total_deleted
-
-        except Exception as e:
-            logger.error(f"Error clearing collection documents: {e}", exc_info=True)
+            return self._clear_by_metadata_filter(has_collection=True, log_label="collection")
+        except Exception:
+            logger.exception("Error clearing collection documents")
             return 0
 
     def get_non_collection_count(self) -> int:
@@ -641,14 +653,9 @@ class VectorStoreManager:
             Number of non-collection chunks
         """
         try:
-            collection = self.vector_store._collection
-            all_results = collection.get(include=["metadatas"])
-            all_metadatas = all_results.get("metadatas", [])
-
-            count = sum(1 for m in all_metadatas if not m or "collection_id" not in m)
-            return count
-        except Exception as e:
-            logger.error(f"Error getting non-collection count: {e}")
+            return self._count_by_metadata_filter(has_collection=False)
+        except Exception:
+            logger.exception("Error getting non-collection count")
             return 0
 
     def get_collection_documents_count(self) -> int:
@@ -659,14 +666,9 @@ class VectorStoreManager:
             Number of collection chunks
         """
         try:
-            collection = self.vector_store._collection
-            all_results = collection.get(include=["metadatas"])
-            all_metadatas = all_results.get("metadatas", [])
-
-            count = sum(1 for m in all_metadatas if m and "collection_id" in m)
-            return count
-        except Exception as e:
-            logger.error(f"Error getting collection documents count: {e}")
+            return self._count_by_metadata_filter(has_collection=True)
+        except Exception:
+            logger.exception("Error getting collection documents count")
             return 0
 
     def get_adjacent_chunks(
@@ -689,44 +691,16 @@ class VectorStoreManager:
             Dict with 'before' and 'after' lists of Document chunks
         """
         try:
-            # Get all chunks for the document
             chunks = self.get_chunks_by_document(document_id)
-            if not chunks:
-                return {"before": [], "after": []}
-
-            # Sort by chunk_index
-            chunks_sorted = sorted(
-                chunks,
-                key=lambda c: c.metadata.get("chunk_index", 0)
-            )
-
-            # Create index map
-            index_to_chunk = {
-                c.metadata.get("chunk_index", i): c
-                for i, c in enumerate(chunks_sorted)
-            }
-
-            # Get before chunks
-            before_chunks = []
-            for i in range(chunk_index - before, chunk_index):
-                if i >= 0 and i in index_to_chunk:
-                    before_chunks.append(index_to_chunk[i])
-
-            # Get after chunks
-            after_chunks = []
-            for i in range(chunk_index + 1, chunk_index + after + 1):
-                if i in index_to_chunk:
-                    after_chunks.append(index_to_chunk[i])
-
+            result = compute_adjacent_chunks(chunks, chunk_index, before, after)
             logger.debug(
-                f"Got {len(before_chunks)} before and {len(after_chunks)} after chunks "
+                f"Got {len(result['before'])} before and {len(result['after'])} after chunks "
                 f"for document {document_id} at index {chunk_index}"
             )
+            return result
 
-            return {"before": before_chunks, "after": after_chunks}
-
-        except Exception as e:
-            logger.error(f"Error getting adjacent chunks: {e}")
+        except Exception:
+            logger.exception("Error getting adjacent chunks")
             return {"before": [], "after": []}
 
     def get_all_documents(self, collection_id: str | None = None) -> list[Document]:
@@ -760,6 +734,6 @@ class VectorStoreManager:
             logger.info(f"Retrieved {len(documents)} documents from vector store (collection_id={collection_id})")
             return documents
 
-        except Exception as e:
-            logger.error(f"Error getting all documents: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error getting all documents")
             return []

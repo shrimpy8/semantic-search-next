@@ -12,6 +12,7 @@ from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.vectorstores import VectorStoreRetriever
 
+from app.config import get_settings
 from app.core.llm_factory import LLMFactory
 from app.prompts import prompts
 
@@ -75,11 +76,14 @@ class QAChain:
         self.temperature = temperature
         self.retriever = retriever
 
-        # Initialize LLM using factory
+        # Initialize LLM using factory with explicit timeout to prevent indefinite hangs
+        _cfg = get_settings()
         self.llm_model = LLMFactory.create(
             provider=provider,
             model=self.model_name,
             temperature=temperature,
+            timeout=_cfg.eval_timeout_seconds,
+            max_retries=_cfg.eval_retry_count,
         )
         logger.info(
             f"Initialized QAChain: provider={provider}, model={self.model_name}, temp={temperature}"

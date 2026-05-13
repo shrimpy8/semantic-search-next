@@ -77,6 +77,8 @@ class AnswerVerifier:
             model=model_name,
             temperature=temperature,
             api_key=cast(Any, key),
+            timeout=30,
+            max_retries=2,
         )
 
         # Load prompts from external YAML files
@@ -118,8 +120,8 @@ class AnswerVerifier:
             logger.debug(f"Extracted {len(claims)} claims from answer")
             return claims
 
-        except Exception as e:
-            logger.error(f"Failed to extract claims: {e}")
+        except Exception:
+            logger.exception("Failed to extract claims")
             return []
 
     def _verify_claims(
@@ -165,8 +167,8 @@ class AnswerVerifier:
             logger.debug(f"Verified {len(citations)} claims")
             return citations
 
-        except Exception as e:
-            logger.error(f"Failed to verify claims: {e}")
+        except Exception:
+            logger.exception("Failed to verify claims")
             return []
 
     def _calculate_confidence(self, citations: list[Citation]) -> tuple[str, int]:

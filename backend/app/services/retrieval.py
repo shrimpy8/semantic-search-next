@@ -43,11 +43,10 @@ try:
     from app.core.injection_detector import InjectionDetector
     _injection_detector = InjectionDetector()
     logger.info("Injection detector initialized (observability mode)")
-except Exception as e:
-    logger.warning(f"Injection detector not available: {e}")
+except ImportError:
+    logger.warning("Injection detector not available (missing dependency)")
 
-# Singleton instances
-_vector_store_instance = None
+# Singleton instance for HybridSearchService (not lru_cache because it holds mutable state)
 _hybrid_search_service_instance = None
 
 # Default embedding model (can be overridden by DB settings at startup)
@@ -81,14 +80,19 @@ def _get_initial_embedding_model() -> str:
         settings = get_settings()
         engine = create_engine(settings.database_url_sync)
 
+        embedding_model_from_db = None
         with Session(engine) as session:
             from app.db.models import Settings as DbSettings
             stmt = select(DbSettings).where(DbSettings.key == "global")
             db_settings = session.execute(stmt).scalar_one_or_none()
 
             if db_settings:
-                logger.info(f"Using embedding model from DB settings: {db_settings.embedding_model}")
-                return db_settings.embedding_model
+                embedding_model_from_db = db_settings.embedding_model
+        engine.dispose()
+
+        if embedding_model_from_db:
+            logger.info(f"Using embedding model from DB settings: {embedding_model_from_db}")
+            return embedding_model_from_db
 
     except Exception as e:
         logger.warning(f"Could not load embedding model from DB settings: {e}")
@@ -133,18 +137,14 @@ def get_vector_store():
     Returns:
         VectorStoreManager instance connected to ChromaDB
     """
-    global _vector_store_instance
-
-    if _vector_store_instance is None:
-        settings = get_settings()
-        try:
-            _vector_store_instance = _create_vector_store(settings)
-            logger.info("VectorStoreManager initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize VectorStoreManager: {e}")
-            raise
-
-    return _vector_store_instance
+    settings = get_settings()
+    try:
+        instance = _create_vector_store(settings)
+        logger.info("VectorStoreManager initialized successfully")
+        return instance
+    except Exception as e:
+        logger.error(f"Failed to initialize VectorStoreManager: {e}")
+        raise
 
 
 # Type aliases for FastAPI dependencies
@@ -402,8 +402,7 @@ def reset_services():
     """
     Reset singleton instances (useful for testing).
     """
-    global _vector_store_instance, _hybrid_search_service_instance
-    _vector_store_instance = None
+    global _hybrid_search_service_instance
     _hybrid_search_service_instance = None
     get_vector_store.cache_clear()
     logger.info("Services reset")

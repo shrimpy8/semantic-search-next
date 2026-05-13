@@ -30,6 +30,7 @@ from app.api.schemas import (
 from app.config import get_settings
 from app.core.answer_verifier import AnswerVerifier
 from app.core.qa_chain import QAChain
+from app.core.vector_store import compute_adjacent_chunks
 from app.db.models import SearchQuery
 from app.services.retrieval import HybridSearchServiceDep, VectorStoreService
 
@@ -40,16 +41,16 @@ _injection_detector = None
 try:
     from app.core.injection_detector import InjectionDetector
     _injection_detector = InjectionDetector()
-except Exception as e:
-    logger.warning(f"[INJECTION_DETECT] Failed to initialize InjectionDetector: {e}")
+except ImportError:
+    logger.warning("[INJECTION_DETECT] InjectionDetector not available (missing dependency)")
 
 # Input sanitizer (M3B — safe import with fallback)
 _input_sanitizer = None
 try:
     from app.core.input_sanitizer import InputSanitizer
     _input_sanitizer = InputSanitizer()
-except Exception as e:
-    logger.warning(f"[INPUT_SANITIZE] Failed to initialize InputSanitizer: {e}")
+except ImportError:
+    logger.warning("[INPUT_SANITIZE] InputSanitizer not available (missing dependency)")
 
 class _PresetConfig(TypedDict):
     alpha: float
@@ -125,37 +126,6 @@ def _build_answer_context(results: list[SearchResultSchema], max_sources: int = 
     return "\n\n---\n\n".join(context_blocks), source_names
 
 
-def _get_adjacent_from_chunks(
-    chunks: list,
-    chunk_index: int,
-    before: int,
-    after: int,
-) -> dict[str, list]:
-    """Compute adjacent chunks from a cached list of chunks."""
-    if not chunks:
-        return {"before": [], "after": []}
-
-    chunks_sorted = sorted(
-        chunks,
-        key=lambda c: c.metadata.get("chunk_index", 0)
-    )
-
-    index_to_chunk = {
-        c.metadata.get("chunk_index", i): c
-        for i, c in enumerate(chunks_sorted)
-    }
-
-    before_chunks = []
-    for i in range(chunk_index - before, chunk_index):
-        if i >= 0 and i in index_to_chunk:
-            before_chunks.append(index_to_chunk[i])
-
-    after_chunks = []
-    for i in range(chunk_index + 1, chunk_index + after + 1):
-        if i in index_to_chunk:
-            after_chunks.append(index_to_chunk[i])
-
-    return {"before": before_chunks, "after": after_chunks}
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -270,8 +240,8 @@ async def search(
             use_reranker=use_reranker,
             reranker_provider=db_settings.reranker_provider,
         )
-    except Exception as e:
-        logger.error(f"Search failed: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Search failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Search operation failed. Please try again or contact support.",
@@ -305,7 +275,12 @@ async def search(
         if coll_id_str in trust_cache:
             return trust_cache[coll_id_str]
         try:
-            coll = await collection_repo.get(UUID(coll_id_str))
+            coll_uuid = UUID(coll_id_str)
+        except ValueError:
+            trust_cache[coll_id_str] = False
+            return False
+        try:
+            coll = await collection_repo.get(coll_uuid)
             trusted = getattr(coll, "is_trusted", False) if coll else False
         except Exception:
             trusted = False
@@ -354,7 +329,7 @@ async def search(
                 if doc_id not in doc_chunks_cache:
                     doc_chunks_cache[doc_id] = vector_store_typed.get_chunks_by_document(doc_id)
 
-                adjacent = _get_adjacent_from_chunks(
+                adjacent = compute_adjacent_chunks(
                     chunks=doc_chunks_cache.get(doc_id, []),
                     chunk_index=chunk_index,
                     before=context_window,
@@ -491,44 +466,48 @@ async def search(
             )
             logger.info(f"RAG answer generated: {len(answer)} characters using {answer_provider}/{answer_model_used}")
 
-            # Verify the answer against source documents
-            # Note: verifier still uses OpenAI for now (can be extended later)
+            # Verify the answer using OpenAI. Skip gracefully if not configured.
             try:
                 app_settings = get_settings()
-                verifier = AnswerVerifier(model_name="gpt-4o-mini", temperature=0.0, api_key=app_settings.openai_api_key)
-                verification_result = verifier.verify(
-                    answer=answer,
-                    context=context_docs,
-                    sources=source_names,
-                )
-
-                # Convert to schema
-                answer_verification = AnswerVerificationSchema(
-                    confidence=verification_result.confidence,
-                    citations=[
-                        CitationSchema(
-                            claim=c.claim,
-                            source_index=c.source_index,
-                            source_name=c.source_name,
-                            quote=c.quote,
-                            verified=c.verified,
-                        )
-                        for c in verification_result.citations
-                    ],
-                    warning=verification_result.warning,
-                    verified_claims=verification_result.verified_claims,
-                    total_claims=verification_result.total_claims,
-                    coverage_percent=verification_result.coverage_percent,
-                )
-                logger.info(
-                    f"Answer verification: confidence={verification_result.confidence} "
-                    f"coverage={verification_result.coverage_percent}%"
-                )
-            except Exception as e:
-                logger.error(f"Answer verification failed: {e}", exc_info=True)
+                if not app_settings.openai_api_key:
+                    logger.info("Skipping answer verification — OpenAI not configured")
+                else:
+                    verifier = AnswerVerifier(
+                        model_name="gpt-4o-mini",
+                        temperature=0.0,
+                        api_key=app_settings.openai_api_key,
+                    )
+                    verification_result = verifier.verify(
+                        answer=answer,
+                        context=context_docs,
+                        sources=source_names,
+                    )
+                    answer_verification = AnswerVerificationSchema(
+                        confidence=verification_result.confidence,
+                        citations=[
+                            CitationSchema(
+                                claim=c.claim,
+                                source_index=c.source_index,
+                                source_name=c.source_name,
+                                quote=c.quote,
+                                verified=c.verified,
+                            )
+                            for c in verification_result.citations
+                        ],
+                        warning=verification_result.warning,
+                        verified_claims=verification_result.verified_claims,
+                        total_claims=verification_result.total_claims,
+                        coverage_percent=verification_result.coverage_percent,
+                    )
+                    logger.info(
+                        f"Answer verification: confidence={verification_result.confidence} "
+                        f"coverage={verification_result.coverage_percent}%"
+                    )
+            except Exception:
+                logger.exception("Answer verification failed")
                 # Don't fail - just return without verification
-        except Exception as e:
-            logger.error(f"RAG answer generation failed: {e}", exc_info=True)
+        except Exception:
+            logger.exception("RAG answer generation failed")
             # Don't fail the request - just return without answer
 
     # Calculate final latency (includes RAG if generated)
