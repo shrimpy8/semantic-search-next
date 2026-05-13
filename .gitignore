@@ -82,6 +82,7 @@ additional_details_donot_commit/
 docs/IMPLEMENTATION_PROGRESS.md
 docs/OLLAMA_IMPLEMENTATION_PLAN.md
 docs/PERFORMANCE_CONSIDERATIONS.md
+docs/CODE_REVIEW_ISSUES.md
 
 # Feature PRD docs (local planning, not shipped)
 docs/features/
