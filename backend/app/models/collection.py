@@ -8,7 +8,7 @@ and embedding.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -78,8 +78,8 @@ class Collection:
     name: str
     description: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     settings: CollectionSettings = field(default_factory=CollectionSettings)
 
     # Computed fields (not stored, populated on read)
@@ -106,7 +106,7 @@ class Collection:
         Returns:
             New Collection instance with generated UUID
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return cls(
             id=str(uuid.uuid4()),
             name=name,
@@ -159,13 +159,13 @@ class Collection:
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(UTC)
 
         updated_at = data.get("updated_at")
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at)
         elif updated_at is None:
-            updated_at = datetime.utcnow()
+            updated_at = datetime.now(UTC)
 
         return cls(
             id=data["id"],
@@ -206,7 +206,7 @@ class Collection:
             description=description if description is not None else self.description,
             metadata=metadata if metadata is not None else self.metadata,
             created_at=self.created_at,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(UTC),
             settings=settings if settings is not None else self.settings,
             document_count=self.document_count,
             chunk_count=self.chunk_count,

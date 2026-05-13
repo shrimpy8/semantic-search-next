@@ -7,7 +7,7 @@ processed into searchable chunks within a collection.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -63,7 +63,7 @@ class Document:
     page_count: int = 0
     chunk_count: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
-    uploaded_at: datetime = field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: DocumentStatus = DocumentStatus.PROCESSING
     error_message: str | None = None
 
@@ -96,7 +96,7 @@ class Document:
             file_hash=file_hash,
             file_size=file_size,
             metadata=metadata or {},
-            uploaded_at=datetime.utcnow(),
+            uploaded_at=datetime.now(UTC),
             status=DocumentStatus.PROCESSING,
         )
 
@@ -136,7 +136,7 @@ class Document:
         if isinstance(uploaded_at, str):
             uploaded_at = datetime.fromisoformat(uploaded_at)
         elif uploaded_at is None:
-            uploaded_at = datetime.utcnow()
+            uploaded_at = datetime.now(UTC)
 
         status = data.get("status", "processing")
         if isinstance(status, str):
