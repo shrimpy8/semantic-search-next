@@ -164,8 +164,8 @@ def parse_llm_json(
     except ValidationError as e:
         if not allow_partial:
             truncated = raw_text[:200] + "..." if len(raw_text) > 200 else raw_text
-            logger.error(
-                f"[OUTPUT_PARSE] Failed to parse {schema.__name__}: {e}. "
+            logger.exception(
+                f"[OUTPUT_PARSE] Failed to parse {schema.__name__}. "
                 f"Raw: {truncated}"
             )
             raise JudgeResponseError(

@@ -109,8 +109,8 @@ class InjectionDetector:
             try:
                 compiled = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
                 self._compiled_patterns.append((compiled, category, weight))
-            except re.error as e:
-                logger.error(f"Failed to compile pattern '{pattern}': {e}")
+            except re.error:
+                logger.exception(f"Failed to compile pattern '{pattern}'")
 
     def scan_text(self, text: str) -> DetectionResult:
         """

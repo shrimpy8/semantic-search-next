@@ -89,8 +89,8 @@ class InputSanitizer:
             try:
                 compiled = re.compile(pattern, re.IGNORECASE)
                 self._compiled_patterns.append((compiled, category, weight))
-            except re.error as e:
-                logger.error(f"[INPUT_SANITIZE] Failed to compile pattern '{pattern}': {e}")
+            except re.error:
+                logger.exception(f"[INPUT_SANITIZE] Failed to compile pattern '{pattern}'")
 
     def sanitize(self, query: str) -> SanitizationResult:
         """Sanitize a user query by stripping high-confidence injection patterns.

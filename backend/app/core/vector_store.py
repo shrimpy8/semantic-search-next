@@ -187,7 +187,7 @@ class VectorStoreManager:
                     embedding_function=self.embedding_model
                 )
             except Exception as e:
-                logger.error(f"Failed to connect to ChromaDB server: {e}")
+                logger.exception("Failed to connect to ChromaDB server")
                 raise ConnectionError(
                     f"Cannot connect to ChromaDB at {self.chroma_host}:{self.chroma_port}. "
                     "Ensure the Docker container is running: docker run -p 8000:8000 chromadb/chroma"
@@ -284,8 +284,8 @@ class VectorStoreManager:
             count = int(self.vector_store._collection.count())
             logger.debug(f"Collection count: {count}")
             return count
-        except Exception as e:
-            logger.error(f"Error getting collection count: {e}")
+        except Exception:
+            logger.exception("Error getting collection count")
             return 0
 
     def clear_collection(self) -> None:
@@ -338,8 +338,8 @@ class VectorStoreManager:
             logger.debug(f"Found {len(sources)} indexed documents")
             return sorted(sources)
 
-        except Exception as e:
-            logger.error(f"Error getting indexed documents: {e}")
+        except Exception:
+            logger.exception("Error getting indexed documents")
             return []
 
     def document_exists(self, filename: str) -> bool:
@@ -496,8 +496,8 @@ class VectorStoreManager:
             logger.info(f"Deleted {len(chunk_ids)} chunks for document {document_id}")
             return len(chunk_ids)
 
-        except Exception as e:
-            logger.error(f"Error deleting chunks for document {document_id}: {e}")
+        except Exception:
+            logger.exception(f"Error deleting chunks for document {document_id}")
             return 0
 
     def delete_by_collection_id(self, collection_id: str) -> int:
@@ -534,8 +534,8 @@ class VectorStoreManager:
             logger.info(f"Deleted {len(chunk_ids)} chunks for collection {collection_id}")
             return len(chunk_ids)
 
-        except Exception as e:
-            logger.error(f"Error deleting chunks for collection {collection_id}: {e}")
+        except Exception:
+            logger.exception(f"Error deleting chunks for collection {collection_id}")
             return 0
 
     def get_chunks_by_document(self, document_id: str) -> list[Document]:
@@ -568,8 +568,8 @@ class VectorStoreManager:
             logger.debug(f"Found {len(chunks)} chunks for document {document_id}")
             return chunks
 
-        except Exception as e:
-            logger.error(f"Error getting chunks for document {document_id}: {e}")
+        except Exception:
+            logger.exception(f"Error getting chunks for document {document_id}")
             return []
 
     def _clear_by_metadata_filter(self, has_collection: bool, log_label: str) -> int:
