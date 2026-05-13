@@ -412,13 +412,13 @@ async def evaluate_qa_pair(
         return EvaluationResultResponse.from_model(result)
 
     except JudgeUnavailableError as e:
-        logger.error(f"Judge unavailable: {e}")
+        logger.exception("Judge unavailable")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e),
         )
     except EvaluationError as e:
-        logger.error(f"Evaluation error: {e}")
+        logger.exception("Evaluation error")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

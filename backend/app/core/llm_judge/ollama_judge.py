@@ -195,8 +195,8 @@ class OllamaJudge(BaseLLMJudge):
                 logger.debug(f"Ollama raw response length: {len(content)}")
                 return content
 
-        except httpx.ConnectError as e:
-            logger.error(f"Cannot connect to Ollama: {e}")
+        except httpx.ConnectError:
+            logger.exception("Cannot connect to Ollama")
             raise JudgeUnavailableError(
                 "ollama",
                 f"Cannot connect to Ollama at {self._base_url}. "

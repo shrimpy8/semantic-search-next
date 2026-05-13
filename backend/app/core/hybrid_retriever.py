@@ -482,8 +482,8 @@ def create_hybrid_retriever(
                 if not reranker.is_available():
                     logger.warning(f"{reranker_provider} reranker not available")
                     reranker = None
-            except ValueError as e:
-                logger.error(f"Failed to create reranker: {e}")
+            except ValueError:
+                logger.exception("Failed to create reranker")
 
     return HybridRetriever(
         semantic_retriever=semantic_retriever,

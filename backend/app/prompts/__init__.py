@@ -58,8 +58,8 @@ class PromptManager:
                         logger.info(f"Loaded {len(data)} prompts from {yaml_file.name}")
                     else:
                         logger.warning(f"Invalid prompt file format: {yaml_file.name}")
-            except Exception as e:
-                logger.error(f"Failed to load prompts from {yaml_file.name}: {e}")
+            except Exception:
+                logger.exception(f"Failed to load prompts from {yaml_file.name}")
 
     def reload(self) -> None:
         """Reload all prompts from disk. Useful for development."""

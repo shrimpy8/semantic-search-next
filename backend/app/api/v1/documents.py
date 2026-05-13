@@ -190,7 +190,7 @@ async def process_and_index_document(
         return len(chunks)
 
     except Exception as e:
-        logger.error(f"Failed to process document {document_id}: {e}")
+        logger.exception(f"Failed to process document {document_id}")
         await document_repo.update_status(document_id, status="error", error_message=str(e))
         raise
 
@@ -347,8 +347,8 @@ async def upload_document(
             # Invalidate BM25 cache so next search rebuilds with new docs
             search_service.invalidate_bm25_cache(str(collection_id))
             logger.info(f"Invalidated BM25 cache for collection {collection_id}")
-        except Exception as e:
-            logger.error(f"Document processing failed: {e}")
+        except Exception:
+            logger.exception("Document processing failed")
             # Document status already set to error in process_and_index_document
 
         # Refresh document to get updated status

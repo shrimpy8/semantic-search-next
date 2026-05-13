@@ -142,8 +142,8 @@ def get_vector_store():
         instance = _create_vector_store(settings)
         logger.info("VectorStoreManager initialized successfully")
         return instance
-    except Exception as e:
-        logger.error(f"Failed to initialize VectorStoreManager: {e}")
+    except Exception:
+        logger.exception("Failed to initialize VectorStoreManager")
         raise
 
 
@@ -200,8 +200,8 @@ class HybridSearchService:
 
             return reranker
 
-        except Exception as e:
-            logger.error(f"Failed to create reranker {provider}: {e}")
+        except Exception:
+            logger.exception(f"Failed to create reranker {provider}")
             return None
 
     def _get_bm25_index(self, collection_id: str | None = None) -> BM25Retriever:
@@ -358,9 +358,9 @@ class HybridSearchService:
                             f"categories={summary['categories_found']}, "
                             f"max_score={summary['max_score']:.2f}"
                         )
-            except Exception as e:
+            except Exception:
                 # Detection errors should NEVER break search
-                logger.error(f"[INJECTION_DETECT] Detection failed (non-blocking): {e}")
+                logger.exception("[INJECTION_DETECT] Detection failed (non-blocking)")
 
         return results
 

@@ -118,8 +118,8 @@ class CohereReranker(BaseReranker):
             logger.info(f"Cohere reranker initialized with model: {self.model}")
         except ImportError:
             logger.warning("cohere package not installed. Run: pip install cohere")
-        except Exception as e:
-            logger.error(f"Failed to initialize Cohere client: {e}")
+        except Exception:
+            logger.exception("Failed to initialize Cohere client")
 
     def is_available(self) -> bool:
         """Check if Cohere re-ranker is available."""
@@ -178,8 +178,8 @@ class CohereReranker(BaseReranker):
             logger.info(f"Cohere reranked {len(results)} documents for query: '{query[:50]}...'")
             return results
 
-        except Exception as e:
-            logger.error(f"Cohere rerank failed: {e}")
+        except Exception:
+            logger.exception("Cohere rerank failed")
             raise
 
 
@@ -230,8 +230,8 @@ class JinaReranker(BaseReranker):
             logger.info(f"Jina reranker initialized with model: {self.model_name}")
         except ImportError:
             logger.warning("sentence-transformers not installed. Run: pip install sentence-transformers")
-        except Exception as e:
-            logger.error(f"Failed to load Jina reranker model: {e}")
+        except Exception:
+            logger.exception("Failed to load Jina reranker model")
 
     def is_available(self) -> bool:
         """Check if Jina re-ranker is available."""
@@ -294,8 +294,8 @@ class JinaReranker(BaseReranker):
             logger.info(f"Jina reranked {len(results)} documents for query: '{query[:50]}...'")
             return results
 
-        except Exception as e:
-            logger.error(f"Jina rerank failed: {e}")
+        except Exception:
+            logger.exception("Jina rerank failed")
             raise
 
 
