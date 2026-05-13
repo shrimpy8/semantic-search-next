@@ -53,13 +53,12 @@ export default function DocumentDetailPage({ params }: PageProps) {
 
   // Scroll to highlighted chunk on load
   useEffect(() => {
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
     if (highlightChunk && content?.chunks) {
       const chunkIndex = parseInt(highlightChunk, 10);
       if (!isNaN(chunkIndex)) {
-        // Expand the chunk
         setExpandedChunks(new Set([chunkIndex]));
-        // Scroll after render
-        setTimeout(() => {
+        scrollTimer = setTimeout(() => {
           const ref = chunkRefs.current.get(chunkIndex);
           if (ref) {
             ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -67,6 +66,9 @@ export default function DocumentDetailPage({ params }: PageProps) {
         }, 100);
       }
     }
+    return () => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+    };
   }, [highlightChunk, content]);
 
   const toggleChunk = (index: number) => {
