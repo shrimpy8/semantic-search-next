@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { buildQueryString } from './utils';
 
 // ============================================================================
 // Types for Ground Truth
@@ -167,21 +168,6 @@ export interface EvaluationStatsParams {
 }
 
 // ============================================================================
-// Helpers
-// ============================================================================
-
-function buildQueryString(params: Record<string, unknown>): string {
-  const searchParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
-      searchParams.append(key, String(value));
-    }
-  }
-  const queryString = searchParams.toString();
-  return queryString ? `?${queryString}` : '';
-}
-
-// ============================================================================
 // API Client
 // ============================================================================
 
@@ -202,7 +188,7 @@ export const evalsApi = {
    * Get a single ground truth by ID
    */
   getGroundTruth: (id: string) =>
-    apiClient.get<GroundTruth>(`/evals/ground-truths/${id}`),
+    apiClient.get<GroundTruth>(`/evals/ground-truths/${encodeURIComponent(id)}`),
 
   /**
    * Create a new ground truth entry
@@ -214,13 +200,13 @@ export const evalsApi = {
    * Update an existing ground truth entry
    */
   updateGroundTruth: (id: string, data: GroundTruthUpdate) =>
-    apiClient.patch<GroundTruth>(`/evals/ground-truths/${id}`, data),
+    apiClient.patch<GroundTruth>(`/evals/ground-truths/${encodeURIComponent(id)}`, data),
 
   /**
    * Delete a ground truth entry
    */
   deleteGroundTruth: (id: string) =>
-    apiClient.delete<{ id: string; object: string }>(`/evals/ground-truths/${id}`),
+    apiClient.delete<{ id: string; object: string }>(`/evals/ground-truths/${encodeURIComponent(id)}`),
 
   // ---------------------------------------------------------------------------
   // Evaluation Results

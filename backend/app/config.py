@@ -89,10 +89,20 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "semantic_search"
     postgres_user: str = "postgres"
-    postgres_password: str = "postgres"
+    postgres_password: str = ""
 
     # Ollama Local LLM Server
     ollama_base_url: str = "http://localhost:11434"
+
+    # ==========================================================================
+    # CORS
+    # ==========================================================================
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
 
     # ==========================================================================
     # Operational Settings (Advanced - rarely changed)

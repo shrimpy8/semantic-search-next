@@ -7,7 +7,6 @@ Provides search history, statistics, and trend analysis for the analytics dashbo
 import logging
 import time
 from datetime import datetime
-from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -33,9 +32,6 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 async def get_analytics_repo(db: DbSession) -> AnalyticsRepository:
     """Get analytics repository instance."""
     return AnalyticsRepository(db)
-
-
-AnalyticsRepo = Annotated[AnalyticsRepository, Query()]
 
 
 @router.get(
@@ -82,11 +78,11 @@ async def get_search_history(
             has_more=(offset + len(data)) < total,
         )
 
-    except Exception as e:
-        logger.error(f"Failed to retrieve search history: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to retrieve search history")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve search history: {str(e)}",
+            detail="Failed to retrieve search history",
         )
 
 
@@ -117,11 +113,11 @@ async def get_search_stats(
 
         return SearchStatsResponse(**stats)
 
-    except Exception as e:
-        logger.error(f"Failed to retrieve search stats: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to retrieve search stats")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve search statistics: {str(e)}",
+            detail="Failed to retrieve search statistics",
         )
 
 
@@ -165,11 +161,11 @@ async def get_search_trends(
             period_days=days,
         )
 
-    except Exception as e:
-        logger.error(f"Failed to retrieve search trends: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to retrieve search trends")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve search trends: {str(e)}",
+            detail="Failed to retrieve search trends",
         )
 
 
@@ -208,9 +204,9 @@ async def get_top_queries(
             period_days=days,
         )
 
-    except Exception as e:
-        logger.error(f"Failed to retrieve top queries: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to retrieve top queries")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve top queries: {str(e)}",
+            detail="Failed to retrieve top queries",
         )

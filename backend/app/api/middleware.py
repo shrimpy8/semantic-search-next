@@ -55,6 +55,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._request_counts[ip] = [
             ts for ts in self._request_counts[ip] if ts > cutoff
         ]
+        if not self._request_counts[ip]:
+            del self._request_counts[ip]
 
     def _is_rate_limited(self, ip: str, current_time: float, limit: int) -> bool:
         """Check if IP has exceeded rate limit."""

@@ -87,6 +87,7 @@ export function UploadDropzone({ collectionId }: UploadDropzoneProps) {
       'text/plain': ['.txt'],
     },
     multiple: true,
+    maxSize: 50 * 1024 * 1024,
   });
 
   const removeFromQueue = (file: File) => {

@@ -38,17 +38,17 @@ export interface DocumentContentResponse {
 
 export const documentsApi = {
   list: (collectionId: string) =>
-    apiClient.get<DocumentListResponse>(`/collections/${collectionId}/documents`),
+    apiClient.get<DocumentListResponse>(`/collections/${encodeURIComponent(collectionId)}/documents`),
 
-  get: (id: string) => apiClient.get<Document>(`/documents/${id}`),
+  get: (id: string) => apiClient.get<Document>(`/documents/${encodeURIComponent(id)}`),
 
-  getContent: (id: string) => apiClient.get<DocumentContentResponse>(`/documents/${id}/content`),
+  getContent: (id: string) => apiClient.get<DocumentContentResponse>(`/documents/${encodeURIComponent(id)}/content`),
 
   upload: (collectionId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiClient.upload<Document>(`/collections/${collectionId}/documents`, formData);
+    return apiClient.upload<Document>(`/collections/${encodeURIComponent(collectionId)}/documents`, formData);
   },
 
-  delete: (id: string) => apiClient.delete<void>(`/documents/${id}`),
+  delete: (id: string) => apiClient.delete<void>(`/documents/${encodeURIComponent(id)}`),
 };

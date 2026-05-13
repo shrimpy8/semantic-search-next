@@ -44,6 +44,12 @@ export default function DocumentDetailPage({ params }: PageProps) {
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set());
   const [copiedChunk, setCopiedChunk] = useState<number | null>(null);
   const chunkRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear copy indicator timeout on unmount
+  useEffect(() => () => {
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+  }, []);
 
   // Scroll to highlighted chunk on load
   useEffect(() => {
@@ -86,9 +92,14 @@ export default function DocumentDetailPage({ params }: PageProps) {
   };
 
   const copyChunkContent = async (content: string, index: number) => {
-    await navigator.clipboard.writeText(content);
-    setCopiedChunk(index);
-    setTimeout(() => setCopiedChunk(null), 2000);
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedChunk(index);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedChunk(null), 2000);
+    } catch {
+      // Clipboard API unavailable (e.g. non-HTTPS or permission denied) — silently ignore
+    }
   };
 
   const formatFileSize = (bytes: number): string => {

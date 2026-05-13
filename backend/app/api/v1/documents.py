@@ -249,13 +249,14 @@ async def stream_upload_to_temp(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
+        logger.exception("Failed to process upload")
         # Clean up on any error
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process upload: {str(e)}",
+            detail="Failed to process upload",
         )
 
 

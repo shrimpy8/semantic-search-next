@@ -35,13 +35,13 @@ export interface CollectionListResponse {
 export const collectionsApi = {
   list: () => apiClient.get<CollectionListResponse>('/collections'),
 
-  get: (id: string) => apiClient.get<Collection>(`/collections/${id}`),
+  get: (id: string) => apiClient.get<Collection>(`/collections/${encodeURIComponent(id)}`),
 
   create: (data: CreateCollectionRequest) => apiClient.post<Collection>('/collections', data),
 
   update: (id: string, data: UpdateCollectionRequest) =>
-    apiClient.patch<Collection>(`/collections/${id}`, data),
+    apiClient.patch<Collection>(`/collections/${encodeURIComponent(id)}`, data),
 
   delete: (id: string, force: boolean = true) =>
-    apiClient.delete<void>(`/collections/${id}?force=${force}`),
+    apiClient.delete<void>(`/collections/${encodeURIComponent(id)}?force=${force}`),
 };

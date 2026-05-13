@@ -258,11 +258,13 @@ class BaseLLMJudge(ABC):
                 latency_ms=latency_ms,
             )
 
-        except Exception as e:
+        except Exception:
             latency_ms = int((time.time() - start_time) * 1000)
-            logger.error(f"Evaluation failed: {e}")
+            # Use exception() to capture full traceback — 0.0 scores from failures
+            # are indistinguishable from genuinely poor results without this.
+            logger.exception("Evaluation failed — returning 0.0 scores (check error_message field)")
 
-            # Return result with error
+            import traceback
             return EvaluationResult(
                 context_relevance=0.0,
                 context_precision=0.0,
@@ -271,5 +273,5 @@ class BaseLLMJudge(ABC):
                 answer_relevance=0.0,
                 completeness=0.0,
                 latency_ms=latency_ms,
-                error_message=str(e),
+                error_message=traceback.format_exc(),
             )

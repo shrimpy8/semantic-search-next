@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -104,7 +104,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         """
         logger.debug(f"Calculating search stats: collection_id={collection_id}, days={days}")
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         conditions: list[Any] = [SearchQuery.created_at >= cutoff_date]
         if collection_id:
@@ -183,7 +183,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         """
         logger.debug(f"Calculating search trends: days={days}, granularity={granularity}")
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         conditions: list[Any] = [SearchQuery.created_at >= cutoff_date]
         if collection_id:
@@ -242,7 +242,7 @@ class AnalyticsRepository(BaseRepository[SearchQuery]):
         """
         logger.debug(f"Getting top queries: limit={limit}, days={days}")
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         conditions: list[Any] = [SearchQuery.created_at >= cutoff_date]
         if collection_id:

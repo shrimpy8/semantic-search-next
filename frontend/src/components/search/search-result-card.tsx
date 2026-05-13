@@ -1,7 +1,7 @@
 'use client';
 
 import { FileText, ChevronDown, ChevronUp, CheckCircle2, Hash, Layers, BarChart2, ExternalLink, ShieldCheck, ShieldAlert } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -77,6 +77,10 @@ export function SearchResultCard({ result, rank, defaultShowScores = false }: Se
   const [showFullContent, setShowFullContent] = useState(false);
   const [showContext, setShowContext] = useState(false);
   const [showScores, setShowScores] = useState(defaultShowScores);
+
+  useEffect(() => {
+    setShowScores(defaultShowScores);
+  }, [defaultShowScores]);
 
   const scores = result.scores;
   const relevancePercent = scores.relevance_percent;

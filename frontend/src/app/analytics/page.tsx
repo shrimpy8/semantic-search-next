@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -37,6 +37,11 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState<number>(2);
   const [historyPage, setHistoryPage] = useState(0);
   const historyLimit = 10;
+
+  // Reset pagination when the time filter changes
+  useEffect(() => {
+    setHistoryPage(0);
+  }, [days]);
 
   // Fetch data
   const { data: stats, isLoading: statsLoading, isError: statsError, refetch: refetchStats } = useSearchStats({ days });

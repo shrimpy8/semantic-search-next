@@ -428,8 +428,8 @@ class HybridRetriever:
             logger.info(f"Re-ranking applied to {len(updated_results)} documents")
             return updated_results
 
-        except Exception as e:
-            logger.error(f"Re-ranking failed, using original results: {e}")
+        except Exception:
+            logger.exception("Re-ranking failed, using original results")
             return results
 
     def get_retrieval_stats(self) -> dict[str, Any]:
