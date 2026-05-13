@@ -244,6 +244,7 @@ export const apiClient = {
    */
   async postSlow<T>(endpoint: string, data?: unknown): Promise<T> {
     debug.log('API', `POST (slow) ${endpoint}`, data);
+    // POST is non-idempotent — no retries to avoid duplicate side-effects
     const response = await fetchWithRetry(
       `${API_BASE_URL}${endpoint}`,
       {
@@ -253,7 +254,8 @@ export const apiClient = {
         },
         body: data ? JSON.stringify(data) : undefined,
       },
-      SEARCH_TIMEOUT
+      SEARCH_TIMEOUT,
+      0
     );
     return handleResponse<T>(response, 'POST', endpoint);
   },

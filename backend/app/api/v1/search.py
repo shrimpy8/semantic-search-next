@@ -11,6 +11,7 @@ from typing import Protocol, TypedDict, cast
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import (
     CollectionRepo,
@@ -282,7 +283,8 @@ async def search(
         try:
             coll = await collection_repo.get(coll_uuid)
             trusted = getattr(coll, "is_trusted", False) if coll else False
-        except Exception:
+        except (SQLAlchemyError, AttributeError) as exc:
+            logger.warning("Trust lookup failed for collection=%s: %s", coll_id_str, exc)
             trusted = False
         trust_cache[coll_id_str] = trusted
         logger.debug(f"[TRUST] collection={coll_id_str} is_trusted={trusted}")

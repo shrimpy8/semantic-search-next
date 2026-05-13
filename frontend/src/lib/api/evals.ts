@@ -224,7 +224,7 @@ export const evalsApi = {
    * Get a single evaluation result by ID
    */
   getResult: (id: string) =>
-    apiClient.get<EvaluationResult>(`/evals/results/${id}`),
+    apiClient.get<EvaluationResult>(`/evals/results/${encodeURIComponent(id)}`),
 
   // ---------------------------------------------------------------------------
   // Evaluation Statistics
