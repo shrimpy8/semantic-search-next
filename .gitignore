@@ -61,6 +61,9 @@ chromadb_data/
 *.temp
 .cache/
 
+# Test data
+ground_truth_files.zip
+
 # Supabase local data (generated)
 supabase/
 
